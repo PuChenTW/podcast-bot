@@ -1,6 +1,6 @@
 import logging
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot import database as db
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Podcast Bot\n\n"
-        "/subscribe <RSS URL> — subscribe to a podcast\n"
-        "/unsubscribe <name> — remove a subscription\n"
+        "/subscribe — subscribe to a podcast\n"
+        "/unsubscribe — remove a subscription\n"
         "/list — show your subscriptions\n"
         "/digest — get a summary of a specific episode\n"
         "/setprompt — customize summarization style per podcast"
@@ -21,11 +21,20 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.args:
-        await update.message.reply_text("Usage: /subscribe <RSS URL>")
+    context.user_data["subscribe"] = {"awaiting_url": True}
+    await update.message.reply_text("請輸入 RSS feed 的網址：")
+
+
+async def subscribe_message_handler(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    state = context.user_data.get("subscribe")
+    if not state or not state.get("awaiting_url"):
         return
 
-    rss_url = context.args[0].strip()
+    rss_url = update.message.text.strip()
+    context.user_data.pop("subscribe", None)
+
     user = update.effective_user
     chat_id = update.effective_chat.id
 
@@ -61,19 +70,47 @@ async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.args:
-        await update.message.reply_text("Usage: /unsubscribe <podcast name>")
-        return
-
-    name = " ".join(context.args).strip()
     user = update.effective_user
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
+    subs = await db.get_subscriptions(user_id)
 
-    removed = await db.remove_subscription(user_id, name)
-    if removed:
-        await update.message.reply_text(f'Unsubscribed from "{name}".')
-    else:
-        await update.message.reply_text(f'No subscription matching "{name}" found.')
+    if not subs:
+        await update.message.reply_text("No subscriptions yet.")
+        return
+
+    buttons = [
+        [InlineKeyboardButton(s.podcast_title, callback_data=f"unsub:{s.id}")]
+        for s in subs
+    ]
+    buttons.append(
+        [InlineKeyboardButton("取消", callback_data="unsub:cancel")]
+    )
+    await update.message.reply_text(
+        "選擇要取消訂閱的 podcast：",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
+async def unsubscribe_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    parts = query.data.split(":", 1)
+    target = parts[1]
+
+    if target == "cancel":
+        await query.edit_message_text("已取消。")
+        return
+
+    sub = await db.get_subscription_by_id(target)
+    if sub is None:
+        await query.edit_message_text("Subscription not found.")
+        return
+
+    await db.remove_subscription_by_id(target)
+    await query.edit_message_text(f'已取消訂閱「{sub.podcast_title}」。')
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -83,7 +120,7 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not subs:
         await update.message.reply_text(
-            "No subscriptions yet. Use /subscribe <RSS URL>."
+            "No subscriptions yet. Use /subscribe."
         )
         return
 

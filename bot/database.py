@@ -127,6 +127,12 @@ async def remove_subscription(user_id: str, name_fragment: str) -> bool:
         return True
 
 
+async def remove_subscription_by_id(subscription_id: str) -> None:
+    async with _connect() as db:
+        await db.execute("DELETE FROM subscriptions WHERE id = ?", (subscription_id,))
+        await db.commit()
+
+
 async def get_subscription_by_id(subscription_id: str) -> Subscription | None:
     async with _connect() as db:
         async with db.execute(

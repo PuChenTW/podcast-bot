@@ -21,6 +21,8 @@ from bot.handlers import (
     digest_callback,
     setprompt_callback,
     setprompt_message_handler,
+    subscribe_message_handler,
+    unsubscribe_callback,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
 
@@ -68,8 +70,12 @@ def main() -> None:
     app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(CommandHandler("digest", cmd_digest))
     app.add_handler(CallbackQueryHandler(digest_callback, pattern=r"^digest:"))
+    app.add_handler(CallbackQueryHandler(unsubscribe_callback, pattern=r"^unsub:"))
     app.add_handler(CommandHandler("setprompt", cmd_setprompt))
     app.add_handler(CallbackQueryHandler(setprompt_callback, pattern=r"^setprompt:"))
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, subscribe_message_handler)
+    )
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, setprompt_message_handler)
     )
