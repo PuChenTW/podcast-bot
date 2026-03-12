@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot import database as db
-from bot.feed import fetch_feed, parse_podcast_title
+from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data["subscribe"] = {"awaiting_url": True}
-    await update.message.reply_text("請輸入 RSS feed 的網址：")
+    await update.message.reply_text("請輸入 RSS feed 網址或 Apple Podcasts 連結：")
 
 
 async def subscribe_message_handler(
@@ -32,13 +32,19 @@ async def subscribe_message_handler(
     if not state or not state.get("awaiting_url"):
         return
 
-    rss_url = update.message.text.strip()
+    raw_url = update.message.text.strip()
     context.user_data.pop("subscribe", None)
 
     user = update.effective_user
     chat_id = update.effective_chat.id
 
     msg = await update.message.reply_text("Fetching feed...")
+
+    try:
+        rss_url = await resolve_rss_url(raw_url)
+    except ValueError as exc:
+        await msg.edit_text(str(exc))
+        return
 
     try:
         parsed = await fetch_feed(rss_url)

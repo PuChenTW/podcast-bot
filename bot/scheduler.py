@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+from functools import partial
+
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from telegram import Bot
@@ -9,7 +11,7 @@ from bot import database as db
 from bot.config import settings
 from bot.feed import fetch_new_episodes
 from bot.formatting import format_summary
-from bot.summarizer import summarize_episode
+from bot.summarizer import correct_transcript, summarize_episode
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,9 @@ async def poll_all_feeds(bot: Bot) -> None:
     logger.info("Polling all feeds...")
     subscriptions = await db.get_all_subscriptions()
 
+    # Pre-bind the AI model to the corrector callback
+    corrector = partial(correct_transcript, settings.gemini_model)
+
     for sub in subscriptions:
         try:
             new_episodes = await fetch_new_episodes(
@@ -28,7 +33,7 @@ async def poll_all_feeds(bot: Bot) -> None:
                 db.is_episode_seen,
                 whisper_model=settings.whisper_model,
                 podcast_title=sub.podcast_title,
-                gemini_model=settings.gemini_model,
+                corrector=corrector,
             )
         except Exception as exc:
             logger.error("Error fetching feed %s: %s", sub.rss_url, exc)

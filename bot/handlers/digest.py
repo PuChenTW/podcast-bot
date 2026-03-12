@@ -1,6 +1,8 @@
 import html as _html
 import logging
 
+from functools import partial
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
@@ -8,7 +10,7 @@ from bot import database as db
 from bot.config import settings
 from bot.feed import fetch_feed_entries, get_episode_content
 from bot.formatting import format_summary, send_html
-from bot.summarizer import summarize_episode
+from bot.summarizer import correct_transcript, summarize_episode
 
 logger = logging.getLogger(__name__)
 
@@ -108,11 +110,12 @@ async def digest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             if existing_transcript:
                 content = existing_transcript
             else:
+                corrector = partial(correct_transcript, settings.gemini_model)
                 content = await get_episode_content(
                     ep["entry"],
                     settings.whisper_model,
                     podcast_title=ep["podcast_title"],
-                    gemini_model=settings.gemini_model,
+                    corrector=corrector,
                 )
             summary = await summarize_episode(
                 ep["title"],
