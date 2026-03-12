@@ -14,3 +14,9 @@ dependencies = [
     "python-ulid>=2.0",
     "faster-whisper>=1.0",
 ]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

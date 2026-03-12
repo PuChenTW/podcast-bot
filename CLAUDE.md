@@ -15,11 +15,11 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 ```bash
 cp .env.example .env         # first run: fill in required vars
 uv sync                      # install / sync dependencies
-uv run python main.py        # run the bot
+uv sync --group dev          # include pytest + pytest-asyncio
+uv run python main.py        # run the bot (or: make run)
 uv add <package>             # add a dependency
+make test                    # run pytest (or: uv run pytest tests/ -v)
 ```
-
-No test suite or linter configured yet.
 
 ## Architecture
 
@@ -81,3 +81,5 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title,
 **Error recovery:** scheduler marks episodes seen even on failure — prevents infinite retries.
 
 **Digest state:** episode metadata cached in `context.bot_data` during the two-step flow; expires on bot restart.
+
+**aiosqlite testing:** Use a temp file path, NOT `:memory:` — each `aiosqlite.connect()` call opens a new connection, so `:memory:` gives each call a fresh empty DB. Tests use `monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))`.

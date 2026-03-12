@@ -25,7 +25,7 @@ git clone <repo-url>
 cd podcast-bot
 cp .env.example .env        # fill in required vars (see Configuration)
 uv sync                     # install dependencies
-uv run python main.py       # run the bot
+make run                    # run the bot
 ```
 
 ## Bot Commands
@@ -68,6 +68,13 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/handlers/` | Telegram command handlers: `subscribe.py`, `digest.py`, `setprompt.py` |
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
 | `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes` |
+
+## Development
+
+```bash
+uv sync --group dev  # install dev dependencies
+make test            # run tests
+```
 
 ## Notes
 
