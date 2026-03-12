@@ -10,6 +10,7 @@ from bot import database as db
 from bot.config import settings
 from bot.feed import fetch_feed_entries, get_episode_content
 from bot.formatting import format_summary, send_html
+from bot.i18n import gettext
 from bot.summarizer import correct_transcript, summarize_episode
 
 logger = logging.getLogger(__name__)
@@ -21,13 +22,12 @@ DIGEST_CHOOSE_EP = 1
 async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     chat_id = update.effective_chat.id
+    lang = await db.get_user_language(user.id)
     db_user_id = await db.get_or_create_user(user.id, chat_id)
     subscriptions = await db.get_subscriptions(db_user_id)
 
     if not subscriptions:
-        await update.message.reply_text(
-            "No subscriptions yet. Use /subscribe <rss_url>."
-        )
+        await update.message.reply_text(gettext(lang, "no_subs_please_subscribe"))
         return ConversationHandler.END
 
     buttons = [
@@ -38,8 +38,9 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         ]
         for sub in subscriptions
     ]
+    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data="digest:pod:cancel")])
     await update.message.reply_text(
-        "Which podcast?", reply_markup=InlineKeyboardMarkup(buttons)
+        gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons)
     )
     return DIGEST_CHOOSE_POD
 
@@ -48,15 +49,22 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
 
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":")[2]
+    
+    if subscription_id == "cancel":
+        await query.edit_message_text(gettext(lang, "canceled"))
+        return ConversationHandler.END
+
     sub = await db.get_subscription_by_id(subscription_id)
     if sub is None:
-        await query.edit_message_text("Subscription not found.")
+        await query.edit_message_text(gettext(lang, "sub_not_found"))
         return ConversationHandler.END
 
     entries = await fetch_feed_entries(sub.rss_url, limit=5)
     if not entries:
-        await query.edit_message_text("No episodes found in this feed.")
+        await query.edit_message_text(gettext(lang, "no_episodes_found"))
         return ConversationHandler.END
 
     buttons = [
@@ -77,8 +85,9 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
         }
         for e in entries
     ]
+    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data="digest:ep:cancel:0")])
     await query.edit_message_text(
-        f"<b>{_html.escape(sub.podcast_title)}</b> — pick an episode:",
+        gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="HTML",
     )
@@ -89,13 +98,22 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
 
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     parts = query.data.split(":")
+    
+    if parts[2] == "cancel":
+        if "digest_eps" in context.user_data:
+            del context.user_data["digest_eps"]
+        await query.edit_message_text(gettext(lang, "canceled"))
+        return ConversationHandler.END
+
     subscription_id = parts[2]
     episode_index = int(parts[3])
     ep_data = context.user_data.get("digest_eps", [])
 
     if not ep_data or episode_index >= len(ep_data):
-        await query.edit_message_text("Episode data expired. Run /digest again.")
+        await query.edit_message_text(gettext(lang, "ep_data_expired"))
         return ConversationHandler.END
 
     ep = ep_data[episode_index]
@@ -106,8 +124,9 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
     existing_transcript = await db.get_episode_transcript(subscription_id, guid)
 
+    state_msg = gettext(lang, "summarizing") if existing_transcript else gettext(lang, "transcribing")
     await query.edit_message_text(
-        f"{'Summarizing' if existing_transcript else 'Transcribing &amp; summarizing'} <i>{_html.escape(ep['title'])}</i>…",
+        f"{state_msg} <i>{_html.escape(ep['title'])}</i>…",
         parse_mode="HTML",
     )
 
@@ -141,9 +160,7 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await send_html(query.message.reply_text, text)
     except Exception as exc:
         logger.error("digest summarize error: %s", exc)
-        await query.message.reply_text(
-            "Error generating summary. Please try again."
-        )
+        await query.message.reply_text(gettext(lang, "error_generating"))
 
     return ConversationHandler.END
 

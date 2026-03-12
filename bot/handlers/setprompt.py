@@ -13,6 +13,7 @@ from telegram.ext import (
 
 from bot import database as db
 from bot.config import settings
+from bot.i18n import gettext
 from bot.summarizer import generate_prompt_from_description
 
 logger = logging.getLogger(__name__)
@@ -24,22 +25,22 @@ SETPROMPT_AUTO_INPUT = 3
 SETPROMPT_AUTO_REVIEW = 4
 
 
-def _regen_buttons(subscription_id: str) -> InlineKeyboardMarkup:
+def _regen_buttons(subscription_id: str, lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    "確認儲存", callback_data=f"setprompt:confirm:{subscription_id}"
+                    gettext(lang, "action_accept"), callback_data=f"setprompt:confirm:{subscription_id}"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "重新生成", callback_data=f"setprompt:regen:{subscription_id}"
+                    gettext(lang, "action_retry"), callback_data=f"setprompt:regen:{subscription_id}"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "取消", callback_data=f"setprompt:cancel:{subscription_id}"
+                    gettext(lang, "cancel_btn"), callback_data=f"setprompt:cancel:{subscription_id}"
                 )
             ],
         ]
@@ -48,13 +49,12 @@ def _regen_buttons(subscription_id: str) -> InlineKeyboardMarkup:
 
 async def cmd_setprompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
+    lang = await db.get_user_language(user.id)
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     subs = await db.get_subscriptions(user_id)
 
     if not subs:
-        await update.message.reply_text(
-            "No subscriptions yet. Use /subscribe <RSS URL>."
-        )
+        await update.message.reply_text(gettext(lang, "no_subs_please_subscribe"))
         return ConversationHandler.END
 
     buttons = [
@@ -66,7 +66,7 @@ async def cmd_setprompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         for s in subs
     ]
     await update.message.reply_text(
-        "Which podcast do you want to customize?",
+        gettext(lang, "setprompt_intro"),
         reply_markup=InlineKeyboardMarkup(buttons),
     )
     return SETPROMPT_CHOOSE_POD
@@ -77,39 +77,41 @@ async def setprompt_pod_selected(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
 
     sub = await db.get_subscription_by_id(subscription_id)
     if sub is None:
-        await query.edit_message_text("Subscription not found.")
+        await query.edit_message_text(gettext(lang, "sub_not_found"))
         return ConversationHandler.END
 
     current = sub.custom_prompt
     status = (
-        f"目前自定義 prompt：\n<code>{_html.escape(current[:80])}...</code>"
+        gettext(lang, "setprompt_choose_action", title=sub.podcast_title, prompt=_html.escape(current[:80]) + "...")
         if current
-        else "目前使用預設 prompt"
+        else gettext(lang, "setprompt_no_prompt", title=sub.podcast_title)
     )
     buttons = [
         [
             InlineKeyboardButton(
-                "手動輸入", callback_data=f"setprompt:manual:{subscription_id}"
+                gettext(lang, "action_manual"), callback_data=f"setprompt:manual:{subscription_id}"
             )
         ],
         [
             InlineKeyboardButton(
-                "自動生成", callback_data=f"setprompt:auto:{subscription_id}"
+                gettext(lang, "action_auto"), callback_data=f"setprompt:auto:{subscription_id}"
             )
         ],
         [
             InlineKeyboardButton(
-                "清除自定義 prompt",
-                callback_data=f"setprompt:clear:{subscription_id}",
+                gettext(lang, "action_reset"), callback_data=f"setprompt:clear:{subscription_id}",
             )
         ],
     ]
     await query.edit_message_text(
-        f"<b>{_html.escape(sub.podcast_title)}</b>\n{status}\n\n選擇操作：",
+        f"<b>{_html.escape(sub.podcast_title)}</b>\n{status}",
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="HTML",
     )
@@ -121,9 +123,13 @@ async def setprompt_mode_manual(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
+    
     context.user_data["setprompt"] = {"subscription_id": subscription_id}
-    await query.edit_message_text("請輸入這個 podcast 的 summarize prompt：")
+    await query.edit_message_text(gettext(lang, "prompt_input_request"))
     return SETPROMPT_MANUAL_INPUT
 
 
@@ -132,11 +138,13 @@ async def setprompt_mode_auto(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
+    
     context.user_data["setprompt"] = {"subscription_id": subscription_id}
-    await query.edit_message_text(
-        "請簡短描述這個 podcast 的風格或你想要的摘要重點："
-    )
+    await query.edit_message_text(gettext(lang, "prompt_auto_request"))
     return SETPROMPT_AUTO_INPUT
 
 
@@ -145,36 +153,46 @@ async def setprompt_clear(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
+    
     await db.set_subscription_prompt(subscription_id, None)
-    await query.edit_message_text("已還原為預設 prompt ✓")
+    await query.edit_message_text(gettext(lang, "prompt_reset"))
     return ConversationHandler.END
 
 
 async def setprompt_save_manual(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     text = update.message.text.strip()
     subscription_id = context.user_data["setprompt"]["subscription_id"]
+    
     await db.set_subscription_prompt(subscription_id, text)
     context.user_data.pop("setprompt", None)
-    await update.message.reply_text("已儲存 ✓")
+    await update.message.reply_text(gettext(lang, "prompt_saved"))
     return ConversationHandler.END
 
 
 async def setprompt_generate_auto(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     text = update.message.text.strip()
     subscription_id = context.user_data["setprompt"]["subscription_id"]
     context.user_data["setprompt"]["description"] = text
 
-    msg = await update.message.reply_text("生成中...")
+    msg = await update.message.reply_text(gettext(lang, "generating"))
     generated = await generate_prompt_from_description(text, settings.gemini_model)
     context.user_data["setprompt"]["generated_prompt"] = generated
+    
     await msg.edit_text(
-        f"生成的 prompt 草稿：\n\n<code>{_html.escape(generated)}</code>",
-        reply_markup=_regen_buttons(subscription_id),
+        gettext(lang, "generated_preview", prompt=_html.escape(generated)),
+        reply_markup=_regen_buttons(subscription_id, lang),
         parse_mode="HTML",
     )
     return SETPROMPT_AUTO_REVIEW
@@ -185,16 +203,19 @@ async def setprompt_confirm(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
     prompt = context.user_data.get("setprompt", {}).get("generated_prompt")
+    
     if not prompt:
-        await query.edit_message_text(
-            "找不到待確認的 prompt，請重新執行 /setprompt。"
-        )
+        await query.edit_message_text(gettext(lang, "prompt_not_found"))
         return ConversationHandler.END
+        
     await db.set_subscription_prompt(subscription_id, prompt)
     context.user_data.pop("setprompt", None)
-    await query.edit_message_text("已儲存 ✓")
+    await query.edit_message_text(gettext(lang, "prompt_saved"))
     return ConversationHandler.END
 
 
@@ -203,19 +224,25 @@ async def setprompt_regen(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
     description = context.user_data.get("setprompt", {}).get("description")
+    
     if not description:
-        await query.edit_message_text("找不到描述，請重新執行 /setprompt。")
+        await query.edit_message_text(gettext(lang, "generate_error"))
         return ConversationHandler.END
-    await query.edit_message_text("重新生成中...")
+        
+    await query.edit_message_text(gettext(lang, "regenerating"))
     generated = await generate_prompt_from_description(
         description, settings.gemini_model
     )
     context.user_data["setprompt"]["generated_prompt"] = generated
+    
     await query.edit_message_text(
-        f"生成的 prompt 草稿：\n\n<code>{_html.escape(generated)}</code>",
-        reply_markup=_regen_buttons(subscription_id),
+        gettext(lang, "generated_preview", prompt=_html.escape(generated)),
+        reply_markup=_regen_buttons(subscription_id, lang),
         parse_mode="HTML",
     )
     return SETPROMPT_AUTO_REVIEW
@@ -226,8 +253,11 @@ async def setprompt_cancel(
 ) -> int:
     query = update.callback_query
     await query.answer()
+    
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
     context.user_data.pop("setprompt", None)
-    await query.edit_message_text("已取消。")
+    await query.edit_message_text(gettext(lang, "canceled"))
     return ConversationHandler.END
 
 

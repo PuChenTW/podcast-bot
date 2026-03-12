@@ -56,14 +56,12 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 ## Database Schema
 
 ```
-users(id ULID, telegram_user_id, chat_id)
-subscriptions(id ULID, user_id→users, podcast_title, rss_url, custom_prompt)
-episodes(id ULID, subscription_id→subscriptions, episode_guid, title,
+users(id ULID, telegram_user_id, chat_id, language, created_at)
+subscriptions(id ULID, user_id→users, podcast_title, rss_url, custom_prompt, created_at)
+episodes(id ULID, subscription_id→subscriptions, episode_guid, title, published_at,
          summary, transcript, notified_at)
   UNIQUE(subscription_id, episode_guid)  -- dedup key
 ```
-
-**Schema changes require DB reset:** No migration logic — delete `podcast_bot.db` and restart.
 
 **`/setprompt` state:** Multi-step flow uses `context.user_data["setprompt"]` dict with `subscription_id`, `description`, `generated_prompt`. (`mode` is no longer stored — derived from ConversationHandler state.)
 

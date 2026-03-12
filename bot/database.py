@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     telegram_user_id INTEGER UNIQUE NOT NULL,
     chat_id INTEGER NOT NULL,
+    language TEXT DEFAULT 'zh-tw',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -75,11 +76,31 @@ async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
             return row[0]
         uid = _new_id()
         await db.execute(
-            "INSERT INTO users (id, telegram_user_id, chat_id) VALUES (?, ?, ?)",
+            "INSERT INTO users (id, telegram_user_id, chat_id, language) VALUES (?, ?, ?, 'zh-tw')",
             (uid, telegram_user_id, chat_id),
         )
         await db.commit()
         return uid
+
+
+async def get_user_language(telegram_user_id: int) -> str:
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT language FROM users WHERE telegram_user_id = ?", (telegram_user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row and row[0]:
+            return row[0]
+        return "zh-tw"
+
+
+async def set_user_language(telegram_user_id: int, language: str) -> None:
+    async with _connect() as db:
+        await db.execute(
+            "UPDATE users SET language = ? WHERE telegram_user_id = ?",
+            (language, telegram_user_id),
+        )
+        await db.commit()
 
 
 async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> str:

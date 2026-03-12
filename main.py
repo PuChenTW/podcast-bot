@@ -15,6 +15,8 @@ from bot.handlers import (
     setprompt_conv,
     subscribe_conv,
     unsubscribe_conv,
+    language_handler,
+    language_callback_handler,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
 
@@ -36,6 +38,7 @@ async def post_init(app: Application) -> None:
         ("list", "List your subscriptions"),
         ("digest", "Get a summary of a specific episode"),
         ("setprompt", "Customize summarization style per podcast"),
+        ("language", "Set language preference"),
     ])
     logger.info("Bot initialized and ready.")
 
@@ -62,6 +65,8 @@ def main() -> None:
     app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(digest_conv)
     app.add_handler(setprompt_conv)
+    app.add_handler(language_handler)
+    app.add_handler(language_callback_handler)
 
     logger.info("Starting bot polling...")
     app.run_polling(drop_pending_updates=True)
