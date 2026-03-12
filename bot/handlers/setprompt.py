@@ -2,7 +2,7 @@ import html as _html
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from bot import database as db
 from bot.config import settings
@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 async def cmd_setprompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("subscribe", None)
     user = update.effective_user
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     subs = await db.get_subscriptions(user_id)
@@ -104,6 +105,7 @@ async def setprompt_callback(
 
     elif stage == "manual":
         subscription_id = parts[2]
+        context.user_data.pop("subscribe", None)
         context.user_data["setprompt"] = {
             "subscription_id": subscription_id,
             "mode": "manual",
@@ -112,6 +114,7 @@ async def setprompt_callback(
 
     elif stage == "auto":
         subscription_id = parts[2]
+        context.user_data.pop("subscribe", None)
         context.user_data["setprompt"] = {
             "subscription_id": subscription_id,
             "mode": "auto",
@@ -187,3 +190,5 @@ async def setprompt_message_handler(
             reply_markup=_regen_buttons(subscription_id),
             parse_mode="HTML",
         )
+
+    raise ApplicationHandlerStop

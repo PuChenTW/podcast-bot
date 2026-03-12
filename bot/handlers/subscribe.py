@@ -1,7 +1,7 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from bot import database as db
 from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
@@ -21,6 +21,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("setprompt", None)
     context.user_data["subscribe"] = {"awaiting_url": True}
     await update.message.reply_text("請輸入 RSS feed 網址或 Apple Podcasts 連結：")
 
@@ -44,18 +45,18 @@ async def subscribe_message_handler(
         rss_url = await resolve_rss_url(raw_url)
     except ValueError as exc:
         await msg.edit_text(str(exc))
-        return
+        raise ApplicationHandlerStop
 
     try:
         parsed = await fetch_feed(rss_url)
     except Exception as exc:
         logger.error("Feed fetch error: %s", exc)
         await msg.edit_text("Could not fetch feed. Check the URL and try again.")
-        return
+        raise ApplicationHandlerStop
 
     if parsed.bozo and not parsed.entries:
         await msg.edit_text("Invalid RSS feed. Check the URL and try again.")
-        return
+        raise ApplicationHandlerStop
 
     title = parse_podcast_title(parsed)
     user_id = await db.get_or_create_user(user.id, chat_id)
@@ -73,6 +74,7 @@ async def subscribe_message_handler(
             )
 
     await msg.edit_text(f'Subscribed to "{title}". Future episodes will be summarized.')
+    raise ApplicationHandlerStop
 
 
 async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

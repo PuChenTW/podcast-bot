@@ -74,10 +74,10 @@ def main() -> None:
     app.add_handler(CommandHandler("setprompt", cmd_setprompt))
     app.add_handler(CallbackQueryHandler(setprompt_callback, pattern=r"^setprompt:"))
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, subscribe_message_handler)
+        MessageHandler(filters.TEXT & ~filters.COMMAND, subscribe_message_handler), group=0
     )
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, setprompt_message_handler)
+        MessageHandler(filters.TEXT & ~filters.COMMAND, setprompt_message_handler), group=1
     )
 
     logger.info("Starting bot polling...")
