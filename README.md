@@ -1,0 +1,76 @@
+# podcast-bot
+
+Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries.
+
+## Features
+
+- Subscribe to podcast RSS feeds per user
+- Auto-polls all subscriptions every 6 hours for new episodes
+- Transcribes episodes via waterfall: transcript URL → Whisper audio → description fallback
+- Summarizes with Google Gemini; supports per-podcast custom prompts
+- On-demand digest: pick a podcast and episode for immediate summary
+- Deduplicates episodes to avoid repeated summaries
+
+## Prerequisites
+
+- Python 3.13+
+- [uv](https://github.com/astral-sh/uv)
+- Telegram bot token (from [@BotFather](https://t.me/BotFather))
+- Google Gemini API key
+
+## Setup
+
+```bash
+git clone <repo-url>
+cd podcast-bot
+cp .env.example .env        # fill in required vars (see Configuration)
+uv sync                     # install dependencies
+uv run python main.py       # run the bot
+```
+
+## Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/subscribe` | Subscribe to a podcast RSS feed |
+| `/unsubscribe` | Remove a podcast subscription |
+| `/digest` | On-demand: pick a podcast → pick an episode → get a summary |
+| `/setprompt` | Set a custom summarization prompt for a podcast |
+
+## Configuration
+
+All configuration is via `.env`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TELEGRAM_BOT_TOKEN` | required | Bot API token from @BotFather |
+| `TELEGRAM_CHAT_ID` | required | Chat ID to send auto-summaries to |
+| `GEMINI_API_KEY` | required | Google Gemini API key |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model for summarization |
+| `WHISPER_MODEL` | `base` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large-v3` |
+| `POLL_INTERVAL_SECONDS` | `21600` | How often to poll for new episodes (default: 6 hours) |
+
+## Architecture
+
+Single-process async bot built on python-telegram-bot and APScheduler. The pipeline is:
+
+```
+RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episode() → Telegram message
+```
+
+| File | Role |
+|------|------|
+| `main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
+| `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
+| `bot/feed.py` | RSS parsing, transcript/audio fetching, Whisper transcription |
+| `bot/summarizer.py` | Pydantic AI (Gemini) agent returning plain Markdown |
+| `bot/scheduler.py` | Polls subscriptions on interval; marks episodes seen even on error |
+| `bot/handlers/` | Telegram command handlers: `subscribe.py`, `digest.py`, `setprompt.py` |
+| `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
+| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes` |
+
+## Notes
+
+**Schema changes require a DB reset.** There is no migration logic — delete `podcast_bot.db` and restart.
+
+**Whisper model tradeoffs:** Larger models (`medium`, `large-v3`) are more accurate but significantly slower and use more memory. `base` is a good default for most use cases.

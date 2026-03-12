@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-Guidance for Claude Code working in this repository.
-
 ## What This Bot Does
 
 Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries to a Telegram chat. It:
@@ -17,8 +13,9 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 ## Commands
 
 ```bash
-uv run python main.py        # run the bot
+cp .env.example .env         # first run: fill in required vars
 uv sync                      # install / sync dependencies
+uv run python main.py        # run the bot
 uv add <package>             # add a dependency
 ```
 
@@ -41,7 +38,8 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/feed.py` | RSS parsing, transcript/audio fetching, Whisper transcription |
 | `bot/summarizer.py` | Pydantic AI (Gemini) agent returning `str` (plain Markdown) |
 | `bot/scheduler.py` | `AsyncScheduler` polls subscriptions every `POLL_INTERVAL_SECONDS`; marks episodes seen even on error |
-| `bot/handlers.py` | Telegram command handlers; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
+| `bot/handlers/` | Telegram command handlers split into `subscribe.py`, `digest.py`, `setprompt.py`; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
+| `bot/formatting.py` | Converts Gemini Markdown → Telegram HTML; `format_summary()` and `send_html()` helpers |
 | `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes`. ULIDs for IDs |
 
 ## Configuration (`.env`)
