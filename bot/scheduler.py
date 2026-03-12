@@ -77,4 +77,4 @@ async def start_scheduler(bot: Bot) -> None:
 
 async def stop_scheduler() -> None:
     if _scheduler is not None:
-        await _scheduler.__aexit__(None, None, None)
+        await _scheduler.stop()
