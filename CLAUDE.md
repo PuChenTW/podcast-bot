@@ -9,6 +9,9 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 - **On-demand digest**: `/digest` lets users pick a podcast → episode for immediate transcription + summary
 - **Custom prompts**: `/setprompt` lets users set per-podcast summarization style (manual input or AI auto-generate)
 - **Deduplicates** episodes per subscription to avoid repeated summaries
+- **Unsubscribes** from podcasts: `/unsubscribe` lets users remove a subscription via inline keyboard
+- **Language selection**: `/language` lets users switch between supported UI languages (en/zh-TW)
+- **Transcript download**: `/transcript` mirrors `/digest` two-step flow but outputs a `.md` file (title, summary, raw transcript); transcript cached in DB — repeat selection is instant
 
 ## Commands
 
@@ -38,7 +41,8 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/feed.py` | RSS parsing, transcript/audio fetching, Whisper transcription |
 | `bot/summarizer.py` | Pydantic AI (Gemini) agent returning `str` (plain Markdown) |
 | `bot/scheduler.py` | `AsyncScheduler` polls subscriptions every `POLL_INTERVAL_SECONDS`; marks episodes seen even on error |
-| `bot/handlers/` | Telegram command handlers split into `subscribe.py`, `digest.py`, `setprompt.py`; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
+| `bot/handlers/` | Telegram command handlers split into `subscribe.py`, `digest.py`, `setprompt.py`, `language.py`; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
+| `bot/handlers/language.py` | `/language` command: inline-keyboard for selecting UI language; persists to `users.language` in DB |
 | `bot/formatting.py` | Converts Gemini Markdown → Telegram HTML; `format_summary()` and `send_html()` helpers |
 | `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes`. ULIDs for IDs |
 
@@ -63,8 +67,6 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
   UNIQUE(subscription_id, episode_guid)  -- dedup key
 ```
 
-**`/setprompt` state:** Multi-step flow uses `context.user_data["setprompt"]` dict with `subscription_id`, `description`, `generated_prompt`. (`mode` is no longer stored — derived from ConversationHandler state.)
-
 ## Key Patterns & Gotchas
 
 **feedparser `FeedParserDict`:** `dict(entry)` drops virtual attributes like `enclosures`. Always extract explicitly:
@@ -80,6 +82,8 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
 
 **Digest state:** episode metadata cached in `context.user_data["digest_eps"]` (not `bot_data`) — per-user isolation prevents cross-user data leakage; expires on bot restart.
 
+**Sending files:** `context.bot.send_document(chat_id=..., document=InputFile(io.BytesIO(content.encode()), filename=...), caption=...)` — see `bot/handlers/transcript.py`. Use distinct `user_data` keys per flow (e.g. `"transcript_eps"` vs `"digest_eps"`).
+
 **aiosqlite testing:** Use a temp file path, NOT `:memory:` — each `aiosqlite.connect()` call opens a new connection, so `:memory:` gives each call a fresh empty DB. Tests use `monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))`.
 
 ## Design Philosophy
@@ -92,3 +96,4 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
 - Each `ConversationHandler` instance lives at the **bottom of its own module** (`subscribe_conv`, `unsubscribe_conv` in `subscribe.py`; `digest_conv` in `digest.py`; `setprompt_conv` in `setprompt.py`)
 - `bot/handlers/__init__.py` is **pure imports only** — no logic or handler construction
 - PTBUserWarning about `per_message=False` with `CallbackQueryHandler` in `ConversationHandler` is expected/informational, not a bug; suppress in pytest via `filterwarnings = ["ignore::telegram.warnings.PTBUserWarning"]` in `[tool.pytest.ini_options]`
+- **`/setprompt` state:** uses `context.user_data["setprompt"]` dict with `subscription_id`, `description`, `generated_prompt` (`mode` is no longer stored — derived from ConversationHandler state)

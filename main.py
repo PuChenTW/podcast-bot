@@ -12,6 +12,7 @@ from bot.handlers import (
     cmd_list,
     cmd_start,
     digest_conv,
+    transcript_conv,
     setprompt_conv,
     subscribe_conv,
     unsubscribe_conv,
@@ -37,6 +38,7 @@ async def post_init(app: Application) -> None:
         ("unsubscribe", "Remove a subscription"),
         ("list", "List your subscriptions"),
         ("digest", "Get a summary of a specific episode"),
+        ("transcript", "Download raw transcript of an episode"),
         ("setprompt", "Customize summarization style per podcast"),
         ("language", "Set language preference"),
     ])
@@ -64,6 +66,7 @@ def main() -> None:
     app.add_handler(unsubscribe_conv)
     app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(digest_conv)
+    app.add_handler(transcript_conv)
     app.add_handler(setprompt_conv)
     app.add_handler(language_handler)
     app.add_handler(language_callback_handler)

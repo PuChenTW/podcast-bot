@@ -211,6 +211,16 @@ async def get_episode_transcript(subscription_id: str, guid: str) -> str | None:
             return row[0] if row else None
 
 
+async def get_episode_summary(subscription_id: str, guid: str) -> str | None:
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT summary FROM episodes WHERE subscription_id=? AND episode_guid=?",
+            (subscription_id, guid),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
+
 async def set_subscription_prompt(subscription_id: str, prompt: str | None) -> None:
     async with _connect() as db:
         await db.execute(

@@ -6,6 +6,7 @@ TRANSLATIONS = {
             "/unsubscribe — remove a subscription\n"
             "/list — show your subscriptions\n"
             "/digest — get a summary of a specific episode\n"
+            "/transcript — download raw episode transcript\n"
             "/setprompt — customize summarization style per podcast\n"
             "/language — set language"
         ),
@@ -54,6 +55,12 @@ TRANSLATIONS = {
         "generated_preview": "Generated prompt:\n\n<blockquote>{prompt}</blockquote>\n\nKeep this prompt?",
         "action_accept": "Accept",
         "action_retry": "Try Again",
+        # Transcript
+        "transcript_fetching": "Fetching transcript for <i>{title}</i>…",
+        "transcript_ep_data_expired": "Episode data expired. Run /transcript again.",
+        "transcript_error": "Error fetching transcript. Please try again.",
+        "transcript_caption": "Transcript: {title}",
+        "transcript_summary_placeholder": "(not yet generated)",
         # Language
         "language_prompt": "Please select your language:",
         "language_set": "Language set to English.",
@@ -65,6 +72,7 @@ TRANSLATIONS = {
             "/unsubscribe — 取消訂閱\n"
             "/list — 顯示訂閱列表\n"
             "/digest — 獲取特定單集的摘要\n"
+            "/transcript — 下載單集逐字稿\n"
             "/setprompt — 自訂不同 podcast 的摘要風格\n"
             "/language — 設定語言"
         ),
@@ -113,6 +121,12 @@ TRANSLATIONS = {
         "generated_preview": "生成的 prompt 如下：\n\n<blockquote>{prompt}</blockquote>\n\n是否使用此 prompt？",
         "action_accept": "接受",
         "action_retry": "再試一次",
+        # Transcript
+        "transcript_fetching": "正在取得 <i>{title}</i> 的逐字稿…",
+        "transcript_ep_data_expired": "單集資料已過期，請重新執行 /transcript。",
+        "transcript_error": "取得逐字稿時發生錯誤，請再試一次。",
+        "transcript_caption": "逐字稿：{title}",
+        "transcript_summary_placeholder": "（尚未生成）",
         # Language
         "language_prompt": "請選擇你的語言設定：",
         "language_set": "已將語言設定為繁體中文。",

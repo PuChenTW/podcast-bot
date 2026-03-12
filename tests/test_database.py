@@ -3,6 +3,7 @@ import pytest
 from bot.database import (
     add_subscription,
     get_all_subscriptions,
+    get_episode_summary,
     get_episode_transcript,
     get_or_create_user,
     get_subscription_by_id,
@@ -165,6 +166,28 @@ class TestGetEpisodeTranscript:
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
         result = await get_episode_transcript(sub_id, "no-such-guid")
+        assert result is None
+
+
+class TestGetEpisodeSummary:
+    async def test_returns_stored_summary(self, tmp_db):
+        uid = await _make_user()
+        sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
+        await mark_episode_seen(sub_id, "guid123", summary="great episode")
+        result = await get_episode_summary(sub_id, "guid123")
+        assert result == "great episode"
+
+    async def test_unknown_guid_returns_none(self, tmp_db):
+        uid = await _make_user()
+        sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
+        result = await get_episode_summary(sub_id, "no-such-guid")
+        assert result is None
+
+    async def test_no_summary_returns_none(self, tmp_db):
+        uid = await _make_user()
+        sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
+        await mark_episode_seen(sub_id, "guid123", transcript="some transcript")
+        result = await get_episode_summary(sub_id, "guid123")
         assert result is None
 
 
