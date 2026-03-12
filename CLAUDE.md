@@ -65,7 +65,7 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title,
 
 **Schema changes require DB reset:** No migration logic — delete `podcast_bot.db` and restart.
 
-**`/setprompt` state:** Multi-step flow uses `context.user_data["setprompt"]` dict with `subscription_id`, `mode` (`manual`/`auto`), `description`, `generated_prompt`.
+**`/setprompt` state:** Multi-step flow uses `context.user_data["setprompt"]` dict with `subscription_id`, `description`, `generated_prompt`. (`mode` is no longer stored — derived from ConversationHandler state.)
 
 ## Key Patterns & Gotchas
 
@@ -83,3 +83,10 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title,
 **Digest state:** episode metadata cached in `context.bot_data` during the two-step flow; expires on bot restart.
 
 **aiosqlite testing:** Use a temp file path, NOT `:memory:` — each `aiosqlite.connect()` call opens a new connection, so `:memory:` gives each call a fresh empty DB. Tests use `monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))`.
+
+## Handler Architecture
+
+- Multi-step flows use `ConversationHandler` (PTB v20) — state is expressed as handler function identity, not `user_data` dicts
+- Each `ConversationHandler` instance lives at the **bottom of its own module** (`subscribe_conv` in `subscribe.py`, `setprompt_conv` in `setprompt.py`)
+- `bot/handlers/__init__.py` is **pure imports only** — no logic or handler construction
+- PTBUserWarning about `per_message=False` with `CallbackQueryHandler` in `ConversationHandler` is expected/informational, not a bug

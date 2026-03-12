@@ -5,8 +5,6 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
-    MessageHandler,
-    filters,
 )
 
 from bot.config import settings
@@ -14,14 +12,11 @@ from bot.database import init_db
 from bot.handlers import (
     cmd_digest,
     cmd_list,
-    cmd_setprompt,
     cmd_start,
-    cmd_subscribe,
     cmd_unsubscribe,
     digest_callback,
-    setprompt_callback,
-    setprompt_message_handler,
-    subscribe_message_handler,
+    setprompt_conv,
+    subscribe_conv,
     unsubscribe_callback,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
@@ -65,20 +60,13 @@ def main() -> None:
     )
 
     app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("subscribe", cmd_subscribe))
+    app.add_handler(subscribe_conv)
     app.add_handler(CommandHandler("unsubscribe", cmd_unsubscribe))
     app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(CommandHandler("digest", cmd_digest))
     app.add_handler(CallbackQueryHandler(digest_callback, pattern=r"^digest:"))
     app.add_handler(CallbackQueryHandler(unsubscribe_callback, pattern=r"^unsub:"))
-    app.add_handler(CommandHandler("setprompt", cmd_setprompt))
-    app.add_handler(CallbackQueryHandler(setprompt_callback, pattern=r"^setprompt:"))
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, subscribe_message_handler), group=0
-    )
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, setprompt_message_handler), group=1
-    )
+    app.add_handler(setprompt_conv)
 
     logger.info("Starting bot polling...")
     app.run_polling(drop_pending_updates=True)

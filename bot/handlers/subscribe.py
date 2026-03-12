@@ -1,12 +1,21 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationHandlerStop, ContextTypes
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 from bot import database as db
 from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
 
 logger = logging.getLogger(__name__)
+
+SUBSCRIBE_WAITING_URL = 0
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -20,22 +29,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.user_data.pop("setprompt", None)
-    context.user_data["subscribe"] = {"awaiting_url": True}
+async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("請輸入 RSS feed 網址或 Apple Podcasts 連結：")
+    return SUBSCRIBE_WAITING_URL
 
 
-async def subscribe_message_handler(
+async def subscribe_url_received(
     update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    state = context.user_data.get("subscribe")
-    if not state or not state.get("awaiting_url"):
-        return
-
+) -> int:
     raw_url = update.message.text.strip()
-    context.user_data.pop("subscribe", None)
-
     user = update.effective_user
     chat_id = update.effective_chat.id
 
@@ -45,18 +47,18 @@ async def subscribe_message_handler(
         rss_url = await resolve_rss_url(raw_url)
     except ValueError as exc:
         await msg.edit_text(str(exc))
-        raise ApplicationHandlerStop
+        return ConversationHandler.END
 
     try:
         parsed = await fetch_feed(rss_url)
     except Exception as exc:
         logger.error("Feed fetch error: %s", exc)
         await msg.edit_text("Could not fetch feed. Check the URL and try again.")
-        raise ApplicationHandlerStop
+        return ConversationHandler.END
 
     if parsed.bozo and not parsed.entries:
         await msg.edit_text("Invalid RSS feed. Check the URL and try again.")
-        raise ApplicationHandlerStop
+        return ConversationHandler.END
 
     title = parse_podcast_title(parsed)
     user_id = await db.get_or_create_user(user.id, chat_id)
@@ -74,7 +76,7 @@ async def subscribe_message_handler(
             )
 
     await msg.edit_text(f'Subscribed to "{title}". Future episodes will be summarized.')
-    raise ApplicationHandlerStop
+    return ConversationHandler.END
 
 
 async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -134,3 +136,17 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     lines = [f"{i + 1}. {s.podcast_title}" for i, s in enumerate(subs)]
     await update.message.reply_text("Your subscriptions:\n" + "\n".join(lines))
+
+
+subscribe_conv = ConversationHandler(
+    entry_points=[CommandHandler("subscribe", cmd_subscribe)],
+    states={
+        SUBSCRIBE_WAITING_URL: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, subscribe_url_received),
+        ],
+    },
+    fallbacks=[CommandHandler("subscribe", cmd_subscribe)],
+    per_user=True,
+    per_chat=True,
+    allow_reentry=True,
+)
