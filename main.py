@@ -22,7 +22,7 @@ from bot.handlers import (
     setprompt_callback,
     setprompt_message_handler,
 )
-from bot.scheduler import start_scheduler
+from bot.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -47,10 +47,7 @@ async def post_init(app: Application) -> None:
 
 
 async def post_shutdown(app: Application) -> None:
-    from bot.scheduler import _scheduler
-
-    if _scheduler is not None:
-        await _scheduler.__aexit__(None, None, None)
+    await stop_scheduler()
 
 
 def main() -> None:

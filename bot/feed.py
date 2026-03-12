@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 from dataclasses import dataclass
+from typing import Awaitable, Callable
 
 import feedparser
 import httpx
@@ -18,6 +19,9 @@ _SRT_TIMECODE = re.compile(r"^\d+\s*\n\d{2}:\d{2}:\d{2},\d{3} --> .+\n", re.MULT
 _AUDIO_MIME = re.compile(r"^audio/")
 
 MAX_AUDIO_BYTES = 200_000_000  # 200 MB hard cap
+
+# Type alias for the transcript corrector callable.
+Corrector = Callable[[str, str, str, str, str], Awaitable[str]]
 
 
 @dataclass
@@ -106,7 +110,7 @@ async def _download_audio(url: str) -> str | None:
         tmp.close()
         return tmp.name
     except Exception as exc:
-        logger.warning("Failed to download audio %s: %s", url, exc)
+        logger.warning("Failed to download audio %s: %s\n", url, exc)
         try:
             os.unlink(tmp.name)
         except Exception:
@@ -130,26 +134,41 @@ async def _transcribe_audio(path: str, model_size: str) -> str | None:
         return None
 
 
+def _default_corrector() -> Corrector:
+    from bot.summarizer import correct_transcript
+
+    return correct_transcript
+
+
 async def get_episode_content(
     entry: dict,
     whisper_model: str = "base",
     podcast_title: str = "",
     gemini_model: str = "gemini-2.0-flash",
+    corrector: Corrector | None = None,
 ) -> str:
-    from bot.summarizer import correct_transcript
+    """Return corrected transcript text (or episode description as fallback).
+
+    Pass `corrector` explicitly to avoid a circular import; if omitted the
+    default `summarizer.correct_transcript` is used.
+    """
+    if corrector is None:
+        corrector = _default_corrector()
+
+    async def _correct(text: str) -> str:
+        return await corrector(
+            text,
+            podcast_title,
+            entry.get("title", ""),
+            entry.get("summary") or entry.get("description", ""),
+            gemini_model,
+        )
 
     url = _resolve_transcript_url(entry)
     if url:
         text = await _fetch_transcript_url(url)
         if text:
-            content = text[:MAX_TRANSCRIPT_CHARS]
-            return await correct_transcript(
-                content,
-                podcast_title,
-                entry.get("title", ""),
-                entry.get("summary") or entry.get("description", ""),
-                gemini_model,
-            )
+            return await _correct(text[:MAX_TRANSCRIPT_CHARS])
 
     audio_url = _extract_audio_url(entry)
     if audio_url:
@@ -158,29 +177,15 @@ async def get_episode_content(
             try:
                 text = await _transcribe_audio(path, whisper_model)
                 if text:
-                    content = text[:MAX_TRANSCRIPT_CHARS]
-                    return await correct_transcript(
-                        content,
-                        podcast_title,
-                        entry.get("title", ""),
-                        entry.get("summary") or entry.get("description", ""),
-                        gemini_model,
-                    )
+                    return await _correct(text[:MAX_TRANSCRIPT_CHARS])
             finally:
                 try:
                     os.unlink(path)
                 except OSError:
                     pass
 
-    text = entry.get("summary") or entry.get("description") or ""
-    content = text[:MAX_TRANSCRIPT_CHARS]
-    return await correct_transcript(
-        content,
-        podcast_title,
-        entry.get("title", ""),
-        entry.get("summary") or entry.get("description", ""),
-        gemini_model,
-    )
+    fallback = entry.get("summary") or entry.get("description") or ""
+    return await _correct(fallback[:MAX_TRANSCRIPT_CHARS])
 
 
 async def fetch_feed(url: str) -> feedparser.FeedParserDict:

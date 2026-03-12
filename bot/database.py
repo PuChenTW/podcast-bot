@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import aiosqlite
 from ulid import ULID
 
@@ -34,18 +36,25 @@ CREATE TABLE IF NOT EXISTS episodes (
 """
 
 
-async def init_db() -> None:
+@asynccontextmanager
+async def _connect():
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.executescript(_SCHEMA)
-        await db.commit()
+        db.row_factory = aiosqlite.Row
+        yield db
 
 
 def _new_id() -> str:
     return str(ULID())
 
 
-async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
+async def init_db() -> None:
     async with aiosqlite.connect(DB_PATH) as db:
+        await db.executescript(_SCHEMA)
+        await db.commit()
+
+
+async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
+    async with _connect() as db:
         async with db.execute(
             "SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,)
         ) as cursor:
@@ -62,7 +71,7 @@ async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
 
 
 async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> str:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _connect() as db:
         sub_id = _new_id()
         await db.execute(
             "INSERT INTO subscriptions (id, user_id, podcast_title, rss_url) VALUES (?, ?, ?, ?)",
@@ -73,8 +82,7 @@ async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> st
 
 
 async def get_subscriptions(user_id: str) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with _connect() as db:
         async with db.execute(
             "SELECT id, podcast_title, rss_url, custom_prompt FROM subscriptions WHERE user_id = ? ORDER BY created_at",
             (user_id,),
@@ -84,8 +92,7 @@ async def get_subscriptions(user_id: str) -> list[dict]:
 
 
 async def get_all_subscriptions() -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with _connect() as db:
         async with db.execute(
             "SELECT s.id, s.podcast_title, s.rss_url, s.custom_prompt, u.chat_id "
             "FROM subscriptions s JOIN users u ON s.user_id = u.id"
@@ -95,7 +102,7 @@ async def get_all_subscriptions() -> list[dict]:
 
 
 async def remove_subscription(user_id: str, name_fragment: str) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _connect() as db:
         async with db.execute(
             "SELECT id FROM subscriptions WHERE user_id = ? AND LOWER(podcast_title) LIKE LOWER(?)",
             (user_id, f"%{name_fragment}%"),
@@ -109,8 +116,7 @@ async def remove_subscription(user_id: str, name_fragment: str) -> bool:
 
 
 async def get_subscription_by_id(subscription_id: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with _connect() as db:
         async with db.execute(
             "SELECT id, podcast_title, rss_url, custom_prompt FROM subscriptions WHERE id = ?",
             (subscription_id,),
@@ -120,7 +126,7 @@ async def get_subscription_by_id(subscription_id: str) -> dict | None:
 
 
 async def is_episode_seen(subscription_id: str, guid: str) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _connect() as db:
         async with db.execute(
             "SELECT 1 FROM episodes WHERE subscription_id = ? AND episode_guid = ?",
             (subscription_id, guid),
@@ -136,7 +142,7 @@ async def mark_episode_seen(
     summary: str | None = None,
     transcript: str | None = None,
 ) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _connect() as db:
         await db.execute(
             "INSERT INTO episodes (id, subscription_id, episode_guid, title, published_at, summary, transcript) "
             "VALUES (?, ?, ?, ?, ?, ?, ?) "
@@ -157,7 +163,7 @@ async def mark_episode_seen(
 
 
 async def get_episode_transcript(subscription_id: str, guid: str) -> str | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _connect() as db:
         async with db.execute(
             "SELECT transcript FROM episodes WHERE subscription_id=? AND episode_guid=?",
             (subscription_id, guid),
@@ -167,7 +173,7 @@ async def get_episode_transcript(subscription_id: str, guid: str) -> str | None:
 
 
 async def set_subscription_prompt(subscription_id: str, prompt: str | None) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _connect() as db:
         await db.execute(
             "UPDATE subscriptions SET custom_prompt = ? WHERE id = ?",
             (prompt, subscription_id),
