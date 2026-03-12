@@ -32,8 +32,10 @@ make run                    # run the bot
 
 | Command | Description |
 |---------|-------------|
+| `/start` | Show available commands |
 | `/subscribe` | Subscribe to a podcast RSS feed |
 | `/unsubscribe` | Remove a podcast subscription |
+| `/list` | List your subscriptions |
 | `/digest` | On-demand: pick a podcast → pick an episode → get a summary |
 | `/setprompt` | Set a custom summarization prompt for a podcast |
 

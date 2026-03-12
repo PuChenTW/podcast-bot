@@ -3,21 +3,18 @@ import os
 
 from telegram.ext import (
     Application,
-    CallbackQueryHandler,
     CommandHandler,
 )
 
 from bot.config import settings
 from bot.database import init_db
 from bot.handlers import (
-    cmd_digest,
     cmd_list,
     cmd_start,
-    cmd_unsubscribe,
-    digest_callback,
+    digest_conv,
     setprompt_conv,
     subscribe_conv,
-    unsubscribe_callback,
+    unsubscribe_conv,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
 
@@ -61,11 +58,9 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(subscribe_conv)
-    app.add_handler(CommandHandler("unsubscribe", cmd_unsubscribe))
+    app.add_handler(unsubscribe_conv)
     app.add_handler(CommandHandler("list", cmd_list))
-    app.add_handler(CommandHandler("digest", cmd_digest))
-    app.add_handler(CallbackQueryHandler(digest_callback, pattern=r"^digest:"))
-    app.add_handler(CallbackQueryHandler(unsubscribe_callback, pattern=r"^unsub:"))
+    app.add_handler(digest_conv)
     app.add_handler(setprompt_conv)
 
     logger.info("Starting bot polling...")

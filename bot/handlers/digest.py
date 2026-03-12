@@ -4,7 +4,7 @@ import logging
 from functools import partial
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, ContextTypes
 
 from bot import database as db
 from bot.config import settings
@@ -14,8 +14,11 @@ from bot.summarizer import correct_transcript, summarize_episode
 
 logger = logging.getLogger(__name__)
 
+DIGEST_CHOOSE_POD = 0
+DIGEST_CHOOSE_EP = 1
 
-async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     chat_id = update.effective_chat.id
     db_user_id = await db.get_or_create_user(user.id, chat_id)
@@ -25,7 +28,7 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text(
             "No subscriptions yet. Use /subscribe <rss_url>."
         )
-        return
+        return ConversationHandler.END
 
     buttons = [
         [
@@ -38,104 +41,126 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await update.message.reply_text(
         "Which podcast?", reply_markup=InlineKeyboardMarkup(buttons)
     )
+    return DIGEST_CHOOSE_POD
 
 
-async def digest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    data = query.data
 
-    parts = data.split(":")
-    stage = parts[1]
+    subscription_id = query.data.split(":")[2]
+    sub = await db.get_subscription_by_id(subscription_id)
+    if sub is None:
+        await query.edit_message_text("Subscription not found.")
+        return ConversationHandler.END
 
-    if stage == "pod":
-        subscription_id = parts[2]
-        sub = await db.get_subscription_by_id(subscription_id)
-        if sub is None:
-            await query.edit_message_text("Subscription not found.")
-            return
+    entries = await fetch_feed_entries(sub.rss_url, limit=5)
+    if not entries:
+        await query.edit_message_text("No episodes found in this feed.")
+        return ConversationHandler.END
 
-        entries = await fetch_feed_entries(sub.rss_url, limit=5)
-        if not entries:
-            await query.edit_message_text("No episodes found in this feed.")
-            return
-
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    (e.get("title") or "Untitled")[:60],
-                    callback_data=f"digest:ep:{subscription_id}:{i}",
-                )
-            ]
-            for i, e in enumerate(entries)
+    buttons = [
+        [
+            InlineKeyboardButton(
+                (e.get("title") or "Untitled")[:60],
+                callback_data=f"digest:ep:{subscription_id}:{i}",
+            )
         ]
-        context.bot_data[f"digest_eps_{subscription_id}"] = [
-            {
-                "title": e.get("title") or "Untitled",
-                "entry": {**dict(e), "enclosures": list(e.get("enclosures", []))},
-                "podcast_title": sub.podcast_title,
-                "custom_prompt": sub.custom_prompt,
-            }
-            for e in entries
-        ]
-        await query.edit_message_text(
-            f"<b>{_html.escape(sub.podcast_title)}</b> — pick an episode:",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML",
+        for i, e in enumerate(entries)
+    ]
+    context.user_data["digest_eps"] = [
+        {
+            "title": e.get("title") or "Untitled",
+            "entry": {**dict(e), "enclosures": list(e.get("enclosures", []))},
+            "podcast_title": sub.podcast_title,
+            "custom_prompt": sub.custom_prompt,
+        }
+        for e in entries
+    ]
+    await query.edit_message_text(
+        f"<b>{_html.escape(sub.podcast_title)}</b> — pick an episode:",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
+    )
+    return DIGEST_CHOOSE_EP
+
+
+async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    parts = query.data.split(":")
+    subscription_id = parts[2]
+    episode_index = int(parts[3])
+    ep_data = context.user_data.get("digest_eps", [])
+
+    if not ep_data or episode_index >= len(ep_data):
+        await query.edit_message_text("Episode data expired. Run /digest again.")
+        return ConversationHandler.END
+
+    ep = ep_data[episode_index]
+    guid = (
+        ep["entry"].get("id")
+        or ep["entry"].get("link")
+        or ep["entry"].get("title", "")
+    )
+    existing_transcript = await db.get_episode_transcript(subscription_id, guid)
+
+    await query.edit_message_text(
+        f"{'Summarizing' if existing_transcript else 'Transcribing &amp; summarizing'} <i>{_html.escape(ep['title'])}</i>…",
+        parse_mode="HTML",
+    )
+
+    try:
+        if existing_transcript:
+            content = existing_transcript
+        else:
+            corrector = partial(correct_transcript, settings.gemini_model)
+            content = await get_episode_content(
+                ep["entry"],
+                settings.whisper_model,
+                podcast_title=ep["podcast_title"],
+                corrector=corrector,
+            )
+        summary = await summarize_episode(
+            ep["title"],
+            content,
+            settings.gemini_model,
+            custom_prompt=ep.get("custom_prompt"),
+        )
+        published_at = ep["entry"].get("published")
+        await db.mark_episode_seen(
+            subscription_id,
+            guid,
+            title=ep["title"],
+            published_at=published_at,
+            summary=summary,
+            transcript=content,
+        )
+        text = format_summary(ep["podcast_title"], ep["title"], summary)
+        await send_html(query.message.reply_text, text)
+    except Exception as exc:
+        logger.error("digest summarize error: %s", exc)
+        await query.message.reply_text(
+            "Error generating summary. Please try again."
         )
 
-    elif stage == "ep":
-        subscription_id = parts[2]
-        episode_index = int(parts[3])
-        ep_data = context.bot_data.get(f"digest_eps_{subscription_id}", [])
+    return ConversationHandler.END
 
-        if not ep_data or episode_index >= len(ep_data):
-            await query.edit_message_text("Episode data expired. Run /digest again.")
-            return
 
-        ep = ep_data[episode_index]
-        guid = (
-            ep["entry"].get("id")
-            or ep["entry"].get("link")
-            or ep["entry"].get("title", "")
-        )
-        existing_transcript = await db.get_episode_transcript(subscription_id, guid)
-
-        await query.edit_message_text(
-            f"{'Summarizing' if existing_transcript else 'Transcribing &amp; summarizing'} <i>{_html.escape(ep['title'])}</i>…",
-            parse_mode="HTML",
-        )
-
-        try:
-            if existing_transcript:
-                content = existing_transcript
-            else:
-                corrector = partial(correct_transcript, settings.gemini_model)
-                content = await get_episode_content(
-                    ep["entry"],
-                    settings.whisper_model,
-                    podcast_title=ep["podcast_title"],
-                    corrector=corrector,
-                )
-            summary = await summarize_episode(
-                ep["title"],
-                content,
-                settings.gemini_model,
-                custom_prompt=ep.get("custom_prompt"),
-            )
-            published_at = ep["entry"].get("published")
-            await db.mark_episode_seen(
-                subscription_id,
-                guid,
-                title=ep["title"],
-                published_at=published_at,
-                summary=summary,
-                transcript=content,
-            )
-            text = format_summary(ep["podcast_title"], ep["title"], summary)
-            await send_html(query.message.reply_text, text)
-        except Exception as exc:
-            logger.error("digest summarize error: %s", exc)
-            await query.message.reply_text(
-                "Error generating summary. Please try again."
-            )
+digest_conv = ConversationHandler(
+    entry_points=[CommandHandler("digest", cmd_digest)],
+    states={
+        DIGEST_CHOOSE_POD: [
+            CallbackQueryHandler(digest_pod_selected, pattern=r"^digest:pod:"),
+        ],
+        DIGEST_CHOOSE_EP: [
+            CallbackQueryHandler(digest_ep_selected, pattern=r"^digest:ep:"),
+        ],
+    },
+    fallbacks=[CommandHandler("digest", cmd_digest)],
+    per_message=False,
+    per_user=True,
+    per_chat=True,
+    allow_reentry=True,
+)

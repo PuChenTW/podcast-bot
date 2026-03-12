@@ -79,14 +79,17 @@ async def subscribe_url_received(
     return ConversationHandler.END
 
 
-async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+UNSUB_CHOOSE_POD = 0
+
+
+async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     subs = await db.get_subscriptions(user_id)
 
     if not subs:
         await update.message.reply_text("No subscriptions yet.")
-        return
+        return ConversationHandler.END
 
     buttons = [
         [InlineKeyboardButton(s.podcast_title, callback_data=f"unsub:{s.id}")]
@@ -99,28 +102,29 @@ async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "選擇要取消訂閱的 podcast：",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
+    return UNSUB_CHOOSE_POD
 
 
-async def unsubscribe_callback(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def unsub_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
-    parts = query.data.split(":", 1)
-    target = parts[1]
-
-    if target == "cancel":
-        await query.edit_message_text("已取消。")
-        return
-
+    target = query.data.split(":", 1)[1]
     sub = await db.get_subscription_by_id(target)
     if sub is None:
         await query.edit_message_text("Subscription not found.")
-        return
+        return ConversationHandler.END
 
     await db.remove_subscription_by_id(target)
     await query.edit_message_text(f'已取消訂閱「{sub.podcast_title}」。')
+    return ConversationHandler.END
+
+
+async def unsub_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("已取消。")
+    return ConversationHandler.END
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -137,6 +141,20 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lines = [f"{i + 1}. {s.podcast_title}" for i, s in enumerate(subs)]
     await update.message.reply_text("Your subscriptions:\n" + "\n".join(lines))
 
+
+unsubscribe_conv = ConversationHandler(
+    entry_points=[CommandHandler("unsubscribe", cmd_unsubscribe)],
+    states={
+        UNSUB_CHOOSE_POD: [
+            CallbackQueryHandler(unsub_selected, pattern=r"^unsub:(?!cancel)"),
+            CallbackQueryHandler(unsub_cancel, pattern=r"^unsub:cancel"),
+        ],
+    },
+    fallbacks=[CommandHandler("unsubscribe", cmd_unsubscribe)],
+    per_user=True,
+    per_chat=True,
+    allow_reentry=True,
+)
 
 subscribe_conv = ConversationHandler(
     entry_points=[CommandHandler("subscribe", cmd_subscribe)],

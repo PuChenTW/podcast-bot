@@ -80,13 +80,17 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title,
 
 **Error recovery:** scheduler marks episodes seen even on failure — prevents infinite retries.
 
-**Digest state:** episode metadata cached in `context.bot_data` during the two-step flow; expires on bot restart.
+**Digest state:** episode metadata cached in `context.user_data["digest_eps"]` (not `bot_data`) — per-user isolation prevents cross-user data leakage; expires on bot restart.
 
 **aiosqlite testing:** Use a temp file path, NOT `:memory:` — each `aiosqlite.connect()` call opens a new connection, so `:memory:` gives each call a fresh empty DB. Tests use `monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))`.
+
+## Design Philosophy
+
+**High cohesion:** Each workflow or pipeline should be fully self-contained in its own module. `main.py` should only wire things together — one handler registration per feature, no scattered logic.
 
 ## Handler Architecture
 
 - Multi-step flows use `ConversationHandler` (PTB v20) — state is expressed as handler function identity, not `user_data` dicts
-- Each `ConversationHandler` instance lives at the **bottom of its own module** (`subscribe_conv` in `subscribe.py`, `setprompt_conv` in `setprompt.py`)
+- Each `ConversationHandler` instance lives at the **bottom of its own module** (`subscribe_conv`, `unsubscribe_conv` in `subscribe.py`; `digest_conv` in `digest.py`; `setprompt_conv` in `setprompt.py`)
 - `bot/handlers/__init__.py` is **pure imports only** — no logic or handler construction
-- PTBUserWarning about `per_message=False` with `CallbackQueryHandler` in `ConversationHandler` is expected/informational, not a bug
+- PTBUserWarning about `per_message=False` with `CallbackQueryHandler` in `ConversationHandler` is expected/informational, not a bug; suppress in pytest via `filterwarnings = ["ignore::telegram.warnings.PTBUserWarning"]` in `[tool.pytest.ini_options]`
