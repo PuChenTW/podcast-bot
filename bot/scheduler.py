@@ -23,30 +23,30 @@ async def poll_all_feeds(bot: Bot) -> None:
     for sub in subscriptions:
         try:
             new_episodes = await fetch_new_episodes(
-                sub["id"],
-                sub["rss_url"],
+                sub.id,
+                sub.rss_url,
                 db.is_episode_seen,
                 whisper_model=settings.whisper_model,
-                podcast_title=sub["podcast_title"],
+                podcast_title=sub.podcast_title,
                 gemini_model=settings.gemini_model,
             )
         except Exception as exc:
-            logger.error("Error fetching feed %s: %s", sub["rss_url"], exc)
+            logger.error("Error fetching feed %s: %s", sub.rss_url, exc)
             continue
 
-        chat_id = sub["chat_id"]  # capture before loop to avoid closure bug
+        chat_id = sub.chat_id  # capture before loop to avoid closure bug
         for episode in new_episodes:
             try:
                 summary = await summarize_episode(
                     episode.title,
                     episode.content,
                     settings.gemini_model,
-                    custom_prompt=sub.get("custom_prompt"),
+                    custom_prompt=sub.custom_prompt,
                 )
-                text = format_summary(sub["podcast_title"], episode.title, summary)
+                text = format_summary(sub.podcast_title, episode.title, summary)
                 await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
                 await db.mark_episode_seen(
-                    sub["id"],
+                    sub.id,
                     episode.guid,
                     title=episode.title,
                     published_at=episode.published,
@@ -56,7 +56,7 @@ async def poll_all_feeds(bot: Bot) -> None:
             except Exception as exc:
                 logger.error("Error processing episode %s: %s", episode.title, exc)
                 # Still mark as seen to avoid retrying broken episodes indefinitely
-                await db.mark_episode_seen(sub["id"], episode.guid, title=episode.title)
+                await db.mark_episode_seen(sub.id, episode.guid, title=episode.title)
 
             await asyncio.sleep(1)  # Telegram rate limit
 

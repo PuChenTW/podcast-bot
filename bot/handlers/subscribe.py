@@ -87,5 +87,5 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    lines = [f"{i + 1}. {s['podcast_title']}" for i, s in enumerate(subs)]
+    lines = [f"{i + 1}. {s.podcast_title}" for i, s in enumerate(subs)]
     await update.message.reply_text("Your subscriptions:\n" + "\n".join(lines))

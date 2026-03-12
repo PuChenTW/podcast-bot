@@ -28,7 +28,7 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     buttons = [
         [
             InlineKeyboardButton(
-                sub["podcast_title"], callback_data=f"digest:pod:{sub['id']}"
+                sub.podcast_title, callback_data=f"digest:pod:{sub.id}"
             )
         ]
         for sub in subscriptions
@@ -53,7 +53,7 @@ async def digest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.edit_message_text("Subscription not found.")
             return
 
-        entries = await fetch_feed_entries(sub["rss_url"], limit=5)
+        entries = await fetch_feed_entries(sub.rss_url, limit=5)
         if not entries:
             await query.edit_message_text("No episodes found in this feed.")
             return
@@ -71,13 +71,13 @@ async def digest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             {
                 "title": e.get("title") or "Untitled",
                 "entry": {**dict(e), "enclosures": list(e.get("enclosures", []))},
-                "podcast_title": sub["podcast_title"],
-                "custom_prompt": sub.get("custom_prompt"),
+                "podcast_title": sub.podcast_title,
+                "custom_prompt": sub.custom_prompt,
             }
             for e in entries
         ]
         await query.edit_message_text(
-            f"<b>{_html.escape(sub['podcast_title'])}</b> — pick an episode:",
+            f"<b>{_html.escape(sub.podcast_title)}</b> — pick an episode:",
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode="HTML",
         )

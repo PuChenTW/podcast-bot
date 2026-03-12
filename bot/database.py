@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 import aiosqlite
+from pydantic import BaseModel
 from ulid import ULID
 
 DB_PATH = "podcast_bot.db"
@@ -34,6 +35,17 @@ CREATE TABLE IF NOT EXISTS episodes (
     UNIQUE(subscription_id, episode_guid)
 );
 """
+
+
+class Subscription(BaseModel):
+    id: str
+    podcast_title: str
+    rss_url: str
+    custom_prompt: str | None
+
+
+class SubscriptionWithChat(Subscription):
+    chat_id: int
 
 
 @asynccontextmanager
@@ -81,24 +93,24 @@ async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> st
         return sub_id
 
 
-async def get_subscriptions(user_id: str) -> list[dict]:
+async def get_subscriptions(user_id: str) -> list[Subscription]:
     async with _connect() as db:
         async with db.execute(
             "SELECT id, podcast_title, rss_url, custom_prompt FROM subscriptions WHERE user_id = ? ORDER BY created_at",
             (user_id,),
         ) as cursor:
             rows = await cursor.fetchall()
-    return [dict(r) for r in rows]
+    return [Subscription.model_validate(dict(r)) for r in rows]
 
 
-async def get_all_subscriptions() -> list[dict]:
+async def get_all_subscriptions() -> list[SubscriptionWithChat]:
     async with _connect() as db:
         async with db.execute(
             "SELECT s.id, s.podcast_title, s.rss_url, s.custom_prompt, u.chat_id "
             "FROM subscriptions s JOIN users u ON s.user_id = u.id"
         ) as cursor:
             rows = await cursor.fetchall()
-    return [dict(r) for r in rows]
+    return [SubscriptionWithChat.model_validate(dict(r)) for r in rows]
 
 
 async def remove_subscription(user_id: str, name_fragment: str) -> bool:
@@ -115,14 +127,14 @@ async def remove_subscription(user_id: str, name_fragment: str) -> bool:
         return True
 
 
-async def get_subscription_by_id(subscription_id: str) -> dict | None:
+async def get_subscription_by_id(subscription_id: str) -> Subscription | None:
     async with _connect() as db:
         async with db.execute(
             "SELECT id, podcast_title, rss_url, custom_prompt FROM subscriptions WHERE id = ?",
             (subscription_id,),
         ) as cursor:
             row = await cursor.fetchone()
-            return dict(row) if row else None
+            return Subscription.model_validate(dict(row)) if row else None
 
 
 async def is_episode_seen(subscription_id: str, guid: str) -> bool:

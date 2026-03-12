@@ -25,7 +25,7 @@ async def cmd_setprompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     buttons = [
         [
             InlineKeyboardButton(
-                s["podcast_title"], callback_data=f"setprompt:pod:{s['id']}"
+                s.podcast_title, callback_data=f"setprompt:pod:{s.id}"
             )
         ]
         for s in subs
@@ -72,7 +72,7 @@ async def setprompt_callback(
         if sub is None:
             await query.edit_message_text("Subscription not found.")
             return
-        current = sub.get("custom_prompt")
+        current = sub.custom_prompt
         status = (
             f"目前自定義 prompt：\n<code>{_html.escape(current[:80])}...</code>"
             if current
@@ -97,7 +97,7 @@ async def setprompt_callback(
             ],
         ]
         await query.edit_message_text(
-            f"<b>{_html.escape(sub['podcast_title'])}</b>\n{status}\n\n選擇操作：",
+            f"<b>{_html.escape(sub.podcast_title)}</b>\n{status}\n\n選擇操作：",
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode="HTML",
         )
