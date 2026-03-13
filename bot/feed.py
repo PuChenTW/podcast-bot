@@ -12,7 +12,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_BYTES = 500_000
-MAX_TRANSCRIPT_CHARS = 12_000
+MAX_TRANSCRIPT_CHARS = 100_000
 
 _VTT_LINE = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3} --> .+$", re.MULTILINE)
 _SRT_TIMECODE = re.compile(r"^\d+\s*\n\d{2}:\d{2}:\d{2},\d{3} --> .+\n", re.MULTILINE)
