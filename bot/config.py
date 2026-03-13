@@ -39,7 +39,7 @@ class Settings:
             telegram_bot_token=token,
             telegram_chat_id=int(chat_id),
             gemini_api_key=gemini_key,
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
             whisper_model=os.getenv("WHISPER_MODEL", "base"),
             poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "21600")),
             admin_user_id=int(admin_user_id),

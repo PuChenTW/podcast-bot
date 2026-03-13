@@ -22,6 +22,9 @@ uv sync --group dev          # include pytest + pytest-asyncio
 uv run python main.py        # run the bot (or: make run)
 uv add <package>             # add a dependency
 make test                    # run pytest (or: uv run pytest tests/ -v)
+make migrate-up              # apply all pending DB migrations
+make migrate-down version=0  # roll back to target version
+make migrate-status          # show applied/pending migration state
 make docker-build            # build Docker image
 make docker-up               # start bot in background (docker compose up -d)
 make docker-logs             # tail container logs
@@ -51,8 +54,12 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/scheduler.py` | `AsyncScheduler` polls subscriptions every `POLL_INTERVAL_SECONDS`; marks episodes seen even on error |
 | `bot/handlers/` | Telegram command handlers split into `subscribe.py`, `digest.py`, `setprompt.py`, `language.py`; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
 | `bot/handlers/language.py` | `/language` command: inline-keyboard for selecting UI language; persists to `users.language` in DB |
+| `bot/handlers/admin.py` | `/reload` command (admin-only); `@admin_only` decorator checks `settings.admin_user_id` |
+| `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-tw` |
 | `bot/formatting.py` | Converts Gemini Markdown → Telegram HTML; `format_summary()` and `send_html()` helpers |
 | `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes`. ULIDs for IDs |
+| `migrate/` | DB migration package; `python -m migrate [up\|down <version>\|status]` |
+| `migrations/` | SQL migration files: `NNN_up.sql` / `NNN_down.sql` |
 
 ## Configuration (`.env`)
 
@@ -61,9 +68,10 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `TELEGRAM_BOT_TOKEN` | required | Bot API token |
 | `TELEGRAM_CHAT_ID` | required | Auto-summary destination |
 | `GEMINI_API_KEY` | required | Google Gemini key |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Summarization model |
+| `GEMINI_MODEL` | `gemini-flash-lite-latest` | Summarization model |
 | `WHISPER_MODEL` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
+| `ADMIN_USER_ID` | required | Telegram user ID for `/reload` admin command |
 
 ## Database Schema
 

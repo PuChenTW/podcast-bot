@@ -88,6 +88,18 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
 | `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes` |
 
+## Database Migrations
+
+Schema migrations live in `migrations/` and are run via the `migrate` package:
+
+```bash
+make migrate-up              # apply all pending migrations
+make migrate-down version=0  # roll back to target version
+make migrate-status          # show applied/pending state
+```
+
+Or directly: `uv run python -m migrate [up|down <version>|status]`
+
 ## Development
 
 ```bash
@@ -96,7 +108,5 @@ make test            # run tests
 ```
 
 ## Notes
-
-**Schema changes require a DB reset.** There is no migration logic — delete `podcast_bot.db` and restart.
 
 **Whisper model tradeoffs:** Larger models (`medium`, `large-v3`) are more accurate but significantly slower and use more memory. `base` is a good default for most use cases.
