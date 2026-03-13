@@ -11,6 +11,7 @@ from telegram.ext import (
 )
 
 from bot import database as db
+from bot.handlers.callbacks import UnsubCallback
 from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
 from bot.i18n import gettext
 
@@ -92,11 +93,15 @@ async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return ConversationHandler.END
 
     buttons = [
-        [InlineKeyboardButton(s.podcast_title, callback_data=f"unsub:{s.id}")]
+        [InlineKeyboardButton(s.podcast_title, callback_data=UnsubCallback(subscription_id=s.id).serialize())]
         for s in subs
     ]
     buttons.append(
-        [InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data="unsub:cancel")]
+        [
+            InlineKeyboardButton(
+                gettext(lang, "cancel_btn"), callback_data=UnsubCallback(subscription_id=None).serialize()
+            )
+        ]
     )
     await update.message.reply_text(
         gettext(lang, "unsub_choose"),
@@ -111,15 +116,17 @@ async def unsub_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     user = update.effective_user
     lang = await db.get_user_language(user.id)
-    target = query.data.split(":", 1)[1]
-    
+    target = UnsubCallback.parse(query.data).subscription_id
+
     sub = await db.get_subscription_by_id(target)
     if sub is None:
         await query.edit_message_text(gettext(lang, "sub_not_found"))
         return ConversationHandler.END
 
     await db.remove_subscription_by_id(target)
-    await query.edit_message_text(gettext(lang, "unsub_success", title=sub.podcast_title))
+    await query.edit_message_text(
+        gettext(lang, "unsub_success", title=sub.podcast_title)
+    )
     return ConversationHandler.END
 
 
@@ -143,7 +150,9 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     lines = [f"{i + 1}. {s.podcast_title}" for i, s in enumerate(subs)]
-    await update.message.reply_text(f"{gettext(lang, 'your_subscriptions')}\n" + "\n".join(lines))
+    await update.message.reply_text(
+        f"{gettext(lang, 'your_subscriptions')}\n" + "\n".join(lines)
+    )
 
 
 unsubscribe_conv = ConversationHandler(

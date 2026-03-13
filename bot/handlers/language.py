@@ -4,6 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
 from bot import database as db
+from bot.handlers.callbacks import LangCallback
 from bot.i18n import gettext
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,8 @@ async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     buttons = [
         [
-            InlineKeyboardButton("English", callback_data="lang:en"),
-            InlineKeyboardButton("繁體中文", callback_data="lang:zh-tw"),
+            InlineKeyboardButton("English", callback_data=LangCallback(lang="en").serialize()),
+            InlineKeyboardButton("繁體中文", callback_data=LangCallback(lang="zh-tw").serialize()),
         ]
     ]
 
@@ -35,7 +36,7 @@ async def lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     query = update.callback_query
     await query.answer()
 
-    _, selected_lang = query.data.split(":", 1)
+    selected_lang = LangCallback.parse(query.data).lang
     user = update.effective_user
 
     await db.set_user_language(user.id, selected_lang)

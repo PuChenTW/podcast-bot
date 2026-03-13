@@ -7,6 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, ContextTypes
 
 from bot import database as db
+from bot.handlers.callbacks import DigestEpCallback, DigestPodCallback
 from bot.config import settings
 from bot.feed import fetch_feed_entries, get_episode_content
 from bot.formatting import format_summary, send_html
@@ -33,12 +34,12 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     buttons = [
         [
             InlineKeyboardButton(
-                sub.podcast_title, callback_data=f"digest:pod:{sub.id}"
+                sub.podcast_title, callback_data=DigestPodCallback(subscription_id=sub.id).serialize()
             )
         ]
         for sub in subscriptions
     ]
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data="digest:pod:cancel")])
+    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=DigestPodCallback(subscription_id=None).serialize())])
     await update.message.reply_text(
         gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons)
     )
@@ -51,9 +52,9 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user = update.effective_user
     lang = await db.get_user_language(user.id)
-    subscription_id = query.data.split(":")[2]
-    
-    if subscription_id == "cancel":
+    subscription_id = DigestPodCallback.parse(query.data).subscription_id
+
+    if subscription_id is None:
         await query.edit_message_text(gettext(lang, "canceled"))
         return ConversationHandler.END
 
@@ -71,7 +72,7 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
         [
             InlineKeyboardButton(
                 (e.get("title") or "Untitled")[:60],
-                callback_data=f"digest:ep:{subscription_id}:{i}",
+                callback_data=DigestEpCallback(subscription_id=subscription_id, index=i).serialize(),
             )
         ]
         for i, e in enumerate(entries)
@@ -85,7 +86,7 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
         }
         for e in entries
     ]
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data="digest:ep:cancel:0")])
+    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=DigestEpCallback(subscription_id=None).serialize())])
     await query.edit_message_text(
         gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -100,16 +101,16 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     user = update.effective_user
     lang = await db.get_user_language(user.id)
-    parts = query.data.split(":")
-    
-    if parts[2] == "cancel":
+    cb = DigestEpCallback.parse(query.data)
+
+    if cb.subscription_id is None:
         if "digest_eps" in context.user_data:
             del context.user_data["digest_eps"]
         await query.edit_message_text(gettext(lang, "canceled"))
         return ConversationHandler.END
 
-    subscription_id = parts[2]
-    episode_index = int(parts[3])
+    subscription_id = cb.subscription_id
+    episode_index = cb.index
     ep_data = context.user_data.get("digest_eps", [])
 
     if not ep_data or episode_index >= len(ep_data):
