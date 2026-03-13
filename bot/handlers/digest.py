@@ -4,10 +4,19 @@ import logging
 from functools import partial
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, ContextTypes
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    ContextTypes,
+)
 
 from bot import database as db
-from bot.handlers.callbacks import DigestEpCallback, DigestPodCallback
+from bot.handlers.callbacks import (
+    DigestEpCallback,
+    DigestNavCallback,
+    DigestPodCallback,
+)
 from bot.config import settings
 from bot.feed import fetch_feed_entries, get_episode_content
 from bot.formatting import format_summary, send_html
@@ -18,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 DIGEST_CHOOSE_POD = 0
 DIGEST_CHOOSE_EP = 1
+_PAGE_SIZE = 5
 
 
 async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -34,19 +44,79 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     buttons = [
         [
             InlineKeyboardButton(
-                sub.podcast_title, callback_data=DigestPodCallback(subscription_id=sub.id).serialize()
+                sub.podcast_title,
+                callback_data=DigestPodCallback(subscription_id=sub.id).serialize(),
             )
         ]
         for sub in subscriptions
     ]
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=DigestPodCallback(subscription_id=None).serialize())])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                gettext(lang, "cancel_btn"),
+                callback_data=DigestPodCallback(subscription_id=None).serialize(),
+            )
+        ]
+    )
     await update.message.reply_text(
         gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons)
     )
     return DIGEST_CHOOSE_POD
 
 
-async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+def _build_episode_keyboard(
+    entries: list,
+    offset: int,
+    subscription_id: str,
+    lang: str,
+) -> InlineKeyboardMarkup:
+    page = entries[offset : offset + _PAGE_SIZE]
+    buttons = [
+        [
+            InlineKeyboardButton(
+                (ep["title"])[:60],
+                callback_data=DigestEpCallback(
+                    subscription_id=subscription_id, index=offset + i
+                ).serialize(),
+            )
+        ]
+        for i, ep in enumerate(page)
+    ]
+    nav_row = []
+    if offset > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                gettext(lang, "nav_prev"),
+                callback_data=DigestNavCallback(
+                    subscription_id=subscription_id, offset=offset - _PAGE_SIZE
+                ).serialize(),
+            )
+        )
+    if offset + _PAGE_SIZE < len(entries):
+        nav_row.append(
+            InlineKeyboardButton(
+                gettext(lang, "nav_next"),
+                callback_data=DigestNavCallback(
+                    subscription_id=subscription_id, offset=offset + _PAGE_SIZE
+                ).serialize(),
+            )
+        )
+    if nav_row:
+        buttons.append(nav_row)
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                gettext(lang, "cancel_btn"),
+                callback_data=DigestEpCallback(subscription_id=None).serialize(),
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(buttons)
+
+
+async def digest_pod_selected(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -63,20 +133,11 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(gettext(lang, "sub_not_found"))
         return ConversationHandler.END
 
-    entries = await fetch_feed_entries(sub.rss_url, limit=5)
+    entries = await fetch_feed_entries(sub.rss_url, limit=50)
     if not entries:
         await query.edit_message_text(gettext(lang, "no_episodes_found"))
         return ConversationHandler.END
 
-    buttons = [
-        [
-            InlineKeyboardButton(
-                (e.get("title") or "Untitled")[:60],
-                callback_data=DigestEpCallback(subscription_id=subscription_id, index=i).serialize(),
-            )
-        ]
-        for i, e in enumerate(entries)
-    ]
     context.user_data["digest_eps"] = [
         {
             "title": e.get("title") or "Untitled",
@@ -86,12 +147,36 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
         }
         for e in entries
     ]
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=DigestEpCallback(subscription_id=None).serialize())])
+    context.user_data["digest_offset"] = 0
+    keyboard = _build_episode_keyboard(
+        context.user_data["digest_eps"], 0, subscription_id, lang
+    )
     await query.edit_message_text(
-        gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
-        reply_markup=InlineKeyboardMarkup(buttons),
+        gettext(
+            lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"
+        ),
+        reply_markup=keyboard,
         parse_mode="HTML",
     )
+    return DIGEST_CHOOSE_EP
+
+
+async def digest_nav(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
+    cb = DigestNavCallback.parse(query.data)
+
+    ep_data = context.user_data.get("digest_eps", [])
+    if not ep_data:
+        await query.edit_message_text(gettext(lang, "ep_data_expired"))
+        return ConversationHandler.END
+
+    context.user_data["digest_offset"] = cb.offset
+    keyboard = _build_episode_keyboard(ep_data, cb.offset, cb.subscription_id, lang)
+    await query.edit_message_reply_markup(reply_markup=keyboard)
     return DIGEST_CHOOSE_EP
 
 
@@ -119,13 +204,15 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     ep = ep_data[episode_index]
     guid = (
-        ep["entry"].get("id")
-        or ep["entry"].get("link")
-        or ep["entry"].get("title", "")
+        ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
     )
     existing_transcript = await db.get_episode_transcript(subscription_id, guid)
 
-    state_msg = gettext(lang, "summarizing") if existing_transcript else gettext(lang, "transcribing")
+    state_msg = (
+        gettext(lang, "summarizing")
+        if existing_transcript
+        else gettext(lang, "transcribing")
+    )
     await query.edit_message_text(
         f"{state_msg} <i>{_html.escape(ep['title'])}</i>…",
         parse_mode="HTML",
@@ -173,6 +260,7 @@ digest_conv = ConversationHandler(
             CallbackQueryHandler(digest_pod_selected, pattern=r"^digest:pod:"),
         ],
         DIGEST_CHOOSE_EP: [
+            CallbackQueryHandler(digest_nav, pattern=r"^digest:nav:"),
             CallbackQueryHandler(digest_ep_selected, pattern=r"^digest:ep:"),
         ],
     },

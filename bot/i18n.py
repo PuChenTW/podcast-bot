@@ -24,6 +24,8 @@ TRANSLATIONS = {
         "unsub_success": 'Unsubscribed from "{title}".',
         "cancel_btn": "Cancel",
         "canceled": "Canceled.",
+        "nav_prev": "◀ Newer",
+        "nav_next": "Older ▶",
         # Digest
         "no_subs_please_subscribe": "No subscriptions found. Please /subscribe first.",
         "select_podcast": "Select a podcast:",
@@ -96,6 +98,8 @@ TRANSLATIONS = {
         "unsub_success": "已取消訂閱「{title}」。",
         "cancel_btn": "取消",
         "canceled": "已取消。",
+        "nav_prev": "◀ 較新",
+        "nav_next": "較舊 ▶",
         # Digest
         "no_subs_please_subscribe": "沒有找到任何訂閱，請先使用 /subscribe 訂閱。",
         "select_podcast": "請選擇一個 podcast：",

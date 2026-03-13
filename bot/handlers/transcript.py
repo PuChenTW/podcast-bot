@@ -7,7 +7,7 @@ from telegram import InputFile, InlineKeyboardButton, InlineKeyboardMarkup, Upda
 from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, ContextTypes
 
 from bot import database as db
-from bot.handlers.callbacks import TranscriptEpCallback, TranscriptPodCallback
+from bot.handlers.callbacks import TranscriptEpCallback, TranscriptNavCallback, TranscriptPodCallback
 from bot.config import settings
 from bot.feed import fetch_feed_entries, get_episode_content
 from bot.i18n import gettext
@@ -63,6 +63,46 @@ async def cmd_transcript(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return TRANSCRIPT_CHOOSE_POD
 
 
+_PAGE_SIZE = 5
+
+
+def _build_episode_keyboard(
+    entries: list,
+    offset: int,
+    subscription_id: str,
+    lang: str,
+) -> InlineKeyboardMarkup:
+    page = entries[offset : offset + _PAGE_SIZE]
+    buttons = [
+        [
+            InlineKeyboardButton(
+                ep["title"][:60],
+                callback_data=TranscriptEpCallback(subscription_id=subscription_id, index=offset + i).serialize(),
+            )
+        ]
+        for i, ep in enumerate(page)
+    ]
+    nav_row = []
+    if offset > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                gettext(lang, "nav_prev"),
+                callback_data=TranscriptNavCallback(subscription_id=subscription_id, offset=offset - _PAGE_SIZE).serialize(),
+            )
+        )
+    if offset + _PAGE_SIZE < len(entries):
+        nav_row.append(
+            InlineKeyboardButton(
+                gettext(lang, "nav_next"),
+                callback_data=TranscriptNavCallback(subscription_id=subscription_id, offset=offset + _PAGE_SIZE).serialize(),
+            )
+        )
+    if nav_row:
+        buttons.append(nav_row)
+    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=TranscriptEpCallback(subscription_id=None).serialize())])
+    return InlineKeyboardMarkup(buttons)
+
+
 async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -80,20 +120,11 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(gettext(lang, "sub_not_found"))
         return ConversationHandler.END
 
-    entries = await fetch_feed_entries(sub.rss_url, limit=5)
+    entries = await fetch_feed_entries(sub.rss_url, limit=50)
     if not entries:
         await query.edit_message_text(gettext(lang, "no_episodes_found"))
         return ConversationHandler.END
 
-    buttons = [
-        [
-            InlineKeyboardButton(
-                (e.get("title") or "Untitled")[:60],
-                callback_data=TranscriptEpCallback(subscription_id=subscription_id, index=i).serialize(),
-            )
-        ]
-        for i, e in enumerate(entries)
-    ]
     context.user_data["transcript_eps"] = [
         {
             "title": e.get("title") or "Untitled",
@@ -103,12 +134,32 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
         }
         for e in entries
     ]
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=TranscriptEpCallback(subscription_id=None).serialize())])
+    context.user_data["transcript_offset"] = 0
+    keyboard = _build_episode_keyboard(context.user_data["transcript_eps"], 0, subscription_id, lang)
     await query.edit_message_text(
         gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=keyboard,
         parse_mode="HTML",
     )
+    return TRANSCRIPT_CHOOSE_EP
+
+
+async def transcript_nav(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
+    cb = TranscriptNavCallback.parse(query.data)
+
+    ep_data = context.user_data.get("transcript_eps", [])
+    if not ep_data:
+        await query.edit_message_text(gettext(lang, "transcript_ep_data_expired"))
+        return ConversationHandler.END
+
+    context.user_data["transcript_offset"] = cb.offset
+    keyboard = _build_episode_keyboard(ep_data, cb.offset, cb.subscription_id, lang)
+    await query.edit_message_reply_markup(reply_markup=keyboard)
     return TRANSCRIPT_CHOOSE_EP
 
 
@@ -189,6 +240,7 @@ transcript_conv = ConversationHandler(
             CallbackQueryHandler(transcript_pod_selected, pattern=r"^transcript:pod:"),
         ],
         TRANSCRIPT_CHOOSE_EP: [
+            CallbackQueryHandler(transcript_nav, pattern=r"^transcript:nav:"),
             CallbackQueryHandler(transcript_ep_selected, pattern=r"^transcript:ep:"),
         ],
     },

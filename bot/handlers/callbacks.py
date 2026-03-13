@@ -90,6 +90,32 @@ class TranscriptEpCallback(BaseModel):
         return cls(subscription_id=sid, index=int(parts[3]))
 
 
+class DigestNavCallback(BaseModel):
+    subscription_id: str
+    offset: int
+
+    def serialize(self) -> str:
+        return f"digest:nav:{self.subscription_id}:{self.offset}"
+
+    @classmethod
+    def parse(cls, data: str) -> "DigestNavCallback":
+        parts = data.split(":")
+        return cls(subscription_id=parts[2], offset=int(parts[3]))
+
+
+class TranscriptNavCallback(BaseModel):
+    subscription_id: str
+    offset: int
+
+    def serialize(self) -> str:
+        return f"transcript:nav:{self.subscription_id}:{self.offset}"
+
+    @classmethod
+    def parse(cls, data: str) -> "TranscriptNavCallback":
+        parts = data.split(":")
+        return cls(subscription_id=parts[2], offset=int(parts[3]))
+
+
 class SetpromptPodCallback(BaseModel):
     subscription_id: str
 
