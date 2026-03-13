@@ -7,7 +7,7 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 - **Transcribes** episodes via 3-strategy waterfall: transcript URL → Whisper audio transcription → description fallback
 - **Summarizes** with Google Gemini (Pydantic AI): returns plain Markdown `str`; supports per-podcast `custom_prompt`
 - **On-demand digest**: `/digest` lets users pick a podcast → episode for immediate transcription + summary
-- **Custom prompts**: `/setprompt` lets users set per-podcast summarization style (manual input or AI auto-generate)
+- **Custom prompts**: `/setprompt` lets users set per-podcast summarization style (manual input, AI auto-generate, or iterative refinement via natural language conversation)
 - **Deduplicates** episodes per subscription to avoid repeated summaries
 - **Unsubscribes** from podcasts: `/unsubscribe` lets users remove a subscription via inline keyboard
 - **Language selection**: `/language` lets users switch between supported UI languages (en/zh-TW)
@@ -77,6 +77,8 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
 
 ## Key Patterns & Gotchas
 
+**Docker hot-reload (`/reload` command):** Source is mounted from host (`.:/app`), not baked in — `.git` exists because the host dir is mounted. Requires `openssh-client` in image + `~/.ssh:/root/.ssh:ro` volume for SSH remotes. Anonymous volume `/app/.venv` prevents host mount from shadowing the in-image venv.
+
 **feedparser `FeedParserDict`:** `dict(entry)` drops virtual attributes like `enclosures`. Always extract explicitly:
 ```python
 {**dict(e), "enclosures": list(e.get("enclosures", []))}
@@ -105,3 +107,4 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
 - `bot/handlers/__init__.py` is **pure imports only** — no logic or handler construction
 - PTBUserWarning about `per_message=False` with `CallbackQueryHandler` in `ConversationHandler` is expected/informational, not a bug; suppress in pytest via `filterwarnings = ["ignore::telegram.warnings.PTBUserWarning"]` in `[tool.pytest.ini_options]`
 - **`/setprompt` state:** uses `context.user_data["setprompt"]` dict with `subscription_id`, `description`, `generated_prompt` (`mode` is no longer stored — derived from ConversationHandler state)
+- **`/setprompt` refinement flow:** `SETPROMPT_REFINE` (state 5) is entered from `SETPROMPT_CHOOSE_MODE` (when `custom_prompt` exists) or `SETPROMPT_AUTO_REVIEW` (via Refine button). User types natural language instructions; `refine_prompt()` in `bot/summarizer.py` applies them via Gemini. Loops until user presses Save. Uses `setdefault().update()` on `user_data["setprompt"]` to preserve `description` across state transitions.

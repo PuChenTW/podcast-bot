@@ -9,6 +9,7 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 - Transcribes episodes via waterfall: transcript URL → Whisper audio → description fallback
 - Summarizes with Google Gemini; supports per-podcast custom prompts
 - On-demand digest: pick a podcast and episode for immediate summary
+- Custom prompt refinement: iteratively tweak prompts via natural language conversation
 - Deduplicates episodes to avoid repeated summaries
 
 ## Prerequisites
@@ -38,8 +39,9 @@ make run                    # run the bot
 | `/list` | List your subscriptions |
 | `/digest` | On-demand: pick a podcast → pick an episode → get a summary |
 | `/transcript` | Download episode transcript as a `.md` file |
-| `/setprompt` | Set a custom summarization prompt for a podcast |
+| `/setprompt` | Set a custom prompt for a podcast (manual, AI auto-generate, or iterative refinement) |
 | `/language` | Switch UI language (English / 繁體中文) |
+| `/reload` | Pull latest code and restart (admin only) |
 
 ## Configuration
 
@@ -53,6 +55,7 @@ All configuration is via `.env`:
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model for summarization |
 | `WHISPER_MODEL` | `base` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large-v3` |
 | `POLL_INTERVAL_SECONDS` | `21600` | How often to poll for new episodes (default: 6 hours) |
+| `ADMIN_USER_ID` | required | Your Telegram user ID — find via [@userinfobot](https://t.me/userinfobot) |
 
 ## Docker
 
@@ -64,7 +67,7 @@ make docker-logs            # tail logs
 make docker-down            # stop
 ```
 
-`.env` and `podcast_bot.db` are bind-mounted — secrets and data stay on the host, not in the image.
+The entire project directory is bind-mounted into the container, so `.git` is available for `/reload`. The in-image `.venv` is protected via an anonymous volume so the host mount doesn't shadow it.
 
 ## Architecture
 
