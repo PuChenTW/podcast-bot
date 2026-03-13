@@ -106,3 +106,22 @@ async def test_setprompt_refine_save():
 
     assert result == ConversationHandler.END
     assert "setprompt" not in context.user_data
+
+
+@pytest.mark.asyncio
+async def test_setprompt_refine_apply_empty_instruction():
+    """refine_apply with empty instruction should not call refine_prompt."""
+    from bot.handlers.setprompt import setprompt_refine_apply, SETPROMPT_REFINE
+
+    update, msg = _make_message_update("   ")  # whitespace only
+    context = MagicMock()
+    context.user_data = {"setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}}
+
+    with (
+        patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),
+        patch("bot.handlers.setprompt.refine_prompt", AsyncMock()) as mock_refine,
+    ):
+        result = await setprompt_refine_apply(update, context)
+
+    assert result == SETPROMPT_REFINE
+    mock_refine.assert_not_called()

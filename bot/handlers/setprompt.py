@@ -216,10 +216,10 @@ async def setprompt_enter_refine(
             return ConversationHandler.END
         current_prompt = sub.custom_prompt
 
-    context.user_data["setprompt"] = {
+    context.user_data.setdefault("setprompt", {}).update({
         "subscription_id": subscription_id,
         "generated_prompt": current_prompt,
-    }
+    })
     await query.edit_message_text(
         gettext(lang, "refine_enter", prompt=_html.escape(current_prompt)),
         parse_mode="HTML",
@@ -233,6 +233,9 @@ async def setprompt_refine_apply(
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     instruction = update.message.text.strip()
+    if not instruction:
+        await update.message.reply_text(gettext(lang, "prompt_input_request"))
+        return SETPROMPT_REFINE
     setprompt_data = context.user_data.get("setprompt", {})
     current_prompt = setprompt_data.get("generated_prompt")
     subscription_id = setprompt_data.get("subscription_id")
@@ -284,8 +287,9 @@ async def setprompt_refine_continue(
     lang = await db.get_user_language(user.id)
     setprompt_data = context.user_data.get("setprompt", {})
     current_prompt = setprompt_data.get("generated_prompt")
+    subscription_id = setprompt_data.get("subscription_id")
 
-    if not current_prompt:
+    if not current_prompt or not subscription_id:
         await query.edit_message_text(gettext(lang, "prompt_not_found"))
         return ConversationHandler.END
 
