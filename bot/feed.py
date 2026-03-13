@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_BYTES = 500_000
 MAX_TRANSCRIPT_CHARS = 100_000
+CORRECTION_CHUNK_CHARS = 12_000
 
 _VTT_LINE = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3} --> .+$", re.MULTILINE)
 _SRT_TIMECODE = re.compile(r"^\d+\s*\n\d{2}:\d{2}:\d{2},\d{3} --> .+\n", re.MULTILINE)
@@ -135,6 +136,31 @@ async def _transcribe_audio(path: str, model_size: str) -> str | None:
         return None
 
 
+def _split_chunks(text: str, max_chars: int) -> list[str]:
+    """Split text at paragraph boundaries into chunks of at most max_chars."""
+    if len(text) <= max_chars:
+        return [text]
+    paragraphs = text.split("\n\n")
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for para in paragraphs:
+        # Hard-cut oversized single paragraph
+        while len(para) > max_chars:
+            chunks.append(para[:max_chars])
+            para = para[max_chars:]
+        sep = "\n\n" if current else ""
+        if current_len + len(sep) + len(para) > max_chars and current:
+            chunks.append("\n\n".join(current))
+            current = []
+            current_len = 0
+        current.append(para)
+        current_len += len(sep) + len(para)
+    if current:
+        chunks.append("\n\n".join(current))
+    return chunks
+
+
 async def get_episode_content(
     entry: dict,
     whisper_model: str = "base",
@@ -145,12 +171,15 @@ async def get_episode_content(
     async def _correct(text: str) -> str:
         if corrector is None:
             return text
-        return await corrector(
-            text,
-            podcast_title,
-            entry.get("title", ""),
-            entry.get("summary") or entry.get("description", ""),
+        ep_title = entry.get("title", "")
+        description = entry.get("summary") or entry.get("description", "")
+        chunks = _split_chunks(text, CORRECTION_CHUNK_CHARS)
+        if len(chunks) == 1:
+            return await corrector(text, podcast_title, ep_title, description)
+        results = await asyncio.gather(
+            *[corrector(chunk, podcast_title, ep_title, description) for chunk in chunks]
         )
+        return "\n\n".join(results)
 
     url = _resolve_transcript_url(entry)
     if url:
