@@ -13,6 +13,7 @@ class Settings:
     gemini_model: str
     whisper_model: str
     poll_interval_seconds: int
+    admin_user_id: int
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -20,6 +21,7 @@ class Settings:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         chat_id = os.getenv("TELEGRAM_CHAT_ID")
         gemini_key = os.getenv("GEMINI_API_KEY")
+        admin_user_id = os.getenv("ADMIN_USER_ID")
 
         if not token:
             missing.append("TELEGRAM_BOT_TOKEN")
@@ -27,6 +29,8 @@ class Settings:
             missing.append("TELEGRAM_CHAT_ID")
         if not gemini_key:
             missing.append("GEMINI_API_KEY")
+        if not admin_user_id:
+            missing.append("ADMIN_USER_ID")
 
         if missing:
             raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
@@ -38,6 +42,7 @@ class Settings:
             gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             whisper_model=os.getenv("WHISPER_MODEL", "base"),
             poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "21600")),
+            admin_user_id=int(admin_user_id),
         )
 
 
