@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./podcast_bot.db:/app/podcast_bot.db
+    restart: unless-stopped
