@@ -21,6 +21,12 @@ User's description: {user_description}
 
 Output only the system prompt text, nothing else."""
 
+_REFINE_PROMPT_PREFIX = """You are a prompt engineer. You have an existing system prompt for an AI podcast summarizer. Apply the user's refinement instruction to improve it.
+
+Existing prompt:
+"""
+_REFINE_PROMPT_SUFFIX = "\n\nOutput only the revised system prompt text, nothing else."
+
 _CORRECTION_SYSTEM_PROMPT = """You are a transcript corrector. Given a podcast transcript that may contain ASR (automatic speech recognition) errors, correct misspelled words, misheard terms, and obvious errors using the provided episode context (podcast title, episode title, description). Preserve the original meaning and structure. Return only the corrected transcript text, nothing else."""
 
 
@@ -43,6 +49,19 @@ async def generate_prompt_from_description(description: str, model: str) -> str:
     """Use Gemini to expand a user's plain-text description into a full system prompt."""
     agent = _get_agent(model, "You are a helpful assistant.")
     result = await agent.run(_META_PROMPT.format(user_description=description))
+    return result.output
+
+
+async def refine_prompt(current_prompt: str, instruction: str, model: str) -> str:
+    """Apply a natural-language instruction to refine an existing system prompt."""
+    agent = _get_agent(model, "You are a helpful assistant.")
+    msg = (
+        _REFINE_PROMPT_PREFIX
+        + current_prompt
+        + f"\n\nRefinement instruction: {instruction}"
+        + _REFINE_PROMPT_SUFFIX
+    )
+    result = await agent.run(msg)
     return result.output
 
 
