@@ -22,7 +22,15 @@ uv sync --group dev          # include pytest + pytest-asyncio
 uv run python main.py        # run the bot (or: make run)
 uv add <package>             # add a dependency
 make test                    # run pytest (or: uv run pytest tests/ -v)
+make docker-build            # build Docker image
+make docker-up               # start bot in background (docker compose up -d)
+make docker-logs             # tail container logs
 ```
+
+## Docker
+
+`docker-compose.yml` mounts `.env` and `podcast_bot.db` as bind mounts — secrets and data stay on host.
+`podcast_bot.db` is auto-created on first run; no manual setup needed.
 
 ## Architecture
 

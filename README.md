@@ -37,7 +37,9 @@ make run                    # run the bot
 | `/unsubscribe` | Remove a podcast subscription |
 | `/list` | List your subscriptions |
 | `/digest` | On-demand: pick a podcast → pick an episode → get a summary |
+| `/transcript` | Download episode transcript as a `.md` file |
 | `/setprompt` | Set a custom summarization prompt for a podcast |
+| `/language` | Switch UI language (English / 繁體中文) |
 
 ## Configuration
 
@@ -51,6 +53,18 @@ All configuration is via `.env`:
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model for summarization |
 | `WHISPER_MODEL` | `base` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large-v3` |
 | `POLL_INTERVAL_SECONDS` | `21600` | How often to poll for new episodes (default: 6 hours) |
+
+## Docker
+
+```bash
+cp .env.example .env        # fill in required vars
+make docker-build           # build the image
+make docker-up              # start in background
+make docker-logs            # tail logs
+make docker-down            # stop
+```
+
+`.env` and `podcast_bot.db` are bind-mounted — secrets and data stay on the host, not in the image.
 
 ## Architecture
 
