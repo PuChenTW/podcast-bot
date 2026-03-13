@@ -14,7 +14,7 @@ from telegram.ext import (
 from bot import database as db
 from bot.config import settings
 from bot.i18n import gettext
-from bot.summarizer import generate_prompt_from_description
+from bot.summarizer import generate_prompt_from_description, refine_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ SETPROMPT_CHOOSE_MODE = 1
 SETPROMPT_MANUAL_INPUT = 2
 SETPROMPT_AUTO_INPUT = 3
 SETPROMPT_AUTO_REVIEW = 4
+SETPROMPT_REFINE = 5
 
 
 def _regen_buttons(subscription_id: str, lang: str) -> InlineKeyboardMarkup:
@@ -35,7 +36,34 @@ def _regen_buttons(subscription_id: str, lang: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    gettext(lang, "action_refine"), callback_data=f"setprompt:refine:{subscription_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     gettext(lang, "action_retry"), callback_data=f"setprompt:regen:{subscription_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    gettext(lang, "cancel_btn"), callback_data=f"setprompt:cancel:{subscription_id}"
+                )
+            ],
+        ]
+    )
+
+
+def _refine_review_buttons(subscription_id: str, lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    gettext(lang, "action_refine_save"), callback_data=f"setprompt:refine_save:{subscription_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    gettext(lang, "action_refine_more"), callback_data=f"setprompt:refine_more:{subscription_id}"
                 )
             ],
             [
@@ -77,7 +105,7 @@ async def setprompt_pod_selected(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
@@ -104,12 +132,18 @@ async def setprompt_pod_selected(
                 gettext(lang, "action_auto"), callback_data=f"setprompt:auto:{subscription_id}"
             )
         ],
-        [
-            InlineKeyboardButton(
-                gettext(lang, "action_reset"), callback_data=f"setprompt:clear:{subscription_id}",
-            )
-        ],
     ]
+    if current:
+        buttons.append([
+            InlineKeyboardButton(
+                gettext(lang, "action_refine_existing"), callback_data=f"setprompt:refine:{subscription_id}"
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(
+            gettext(lang, "action_reset"), callback_data=f"setprompt:clear:{subscription_id}",
+        )
+    ])
     await query.edit_message_text(
         f"<b>{_html.escape(sub.podcast_title)}</b>\n{status}",
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -123,11 +157,11 @@ async def setprompt_mode_manual(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
-    
+
     context.user_data["setprompt"] = {"subscription_id": subscription_id}
     await query.edit_message_text(gettext(lang, "prompt_input_request"))
     return SETPROMPT_MANUAL_INPUT
@@ -138,11 +172,11 @@ async def setprompt_mode_auto(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
-    
+
     context.user_data["setprompt"] = {"subscription_id": subscription_id}
     await query.edit_message_text(gettext(lang, "prompt_auto_request"))
     return SETPROMPT_AUTO_INPUT
@@ -153,14 +187,113 @@ async def setprompt_clear(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
-    
+
     await db.set_subscription_prompt(subscription_id, None)
     await query.edit_message_text(gettext(lang, "prompt_reset"))
     return ConversationHandler.END
+
+
+async def setprompt_enter_refine(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
+    subscription_id = query.data.split(":", 2)[2]
+
+    # Prefer in-flight generated_prompt (coming from AUTO_REVIEW); fall back to DB
+    current_prompt = context.user_data.get("setprompt", {}).get("generated_prompt")
+    if not current_prompt:
+        sub = await db.get_subscription_by_id(subscription_id)
+        if sub is None or not sub.custom_prompt:
+            await query.edit_message_text(gettext(lang, "sub_not_found"))
+            return ConversationHandler.END
+        current_prompt = sub.custom_prompt
+
+    context.user_data["setprompt"] = {
+        "subscription_id": subscription_id,
+        "generated_prompt": current_prompt,
+    }
+    await query.edit_message_text(
+        gettext(lang, "refine_enter", prompt=_html.escape(current_prompt)),
+        parse_mode="HTML",
+    )
+    return SETPROMPT_REFINE
+
+
+async def setprompt_refine_apply(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
+    instruction = update.message.text.strip()
+    setprompt_data = context.user_data.get("setprompt", {})
+    current_prompt = setprompt_data.get("generated_prompt")
+    subscription_id = setprompt_data.get("subscription_id")
+
+    if not current_prompt or not subscription_id:
+        await update.message.reply_text(gettext(lang, "prompt_not_found"))
+        return ConversationHandler.END
+
+    msg = await update.message.reply_text(gettext(lang, "refining"))
+    refined = await refine_prompt(current_prompt, instruction, settings.gemini_model)
+    context.user_data["setprompt"]["generated_prompt"] = refined
+
+    await msg.edit_text(
+        gettext(lang, "generated_preview", prompt=_html.escape(refined)),
+        reply_markup=_refine_review_buttons(subscription_id, lang),
+        parse_mode="HTML",
+    )
+    return SETPROMPT_REFINE
+
+
+async def setprompt_refine_save(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
+    subscription_id = query.data.split(":", 2)[2]
+    prompt = context.user_data.get("setprompt", {}).get("generated_prompt")
+
+    if not prompt:
+        await query.edit_message_text(gettext(lang, "prompt_not_found"))
+        return ConversationHandler.END
+
+    await db.set_subscription_prompt(subscription_id, prompt)
+    context.user_data.pop("setprompt", None)
+    await query.edit_message_text(gettext(lang, "prompt_saved"))
+    return ConversationHandler.END
+
+
+async def setprompt_refine_continue(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    lang = await db.get_user_language(user.id)
+    setprompt_data = context.user_data.get("setprompt", {})
+    current_prompt = setprompt_data.get("generated_prompt")
+
+    if not current_prompt:
+        await query.edit_message_text(gettext(lang, "prompt_not_found"))
+        return ConversationHandler.END
+
+    await query.edit_message_text(
+        gettext(lang, "refine_enter", prompt=_html.escape(current_prompt)),
+        parse_mode="HTML",
+    )
+    return SETPROMPT_REFINE
 
 
 async def setprompt_save_manual(
@@ -170,7 +303,7 @@ async def setprompt_save_manual(
     lang = await db.get_user_language(user.id)
     text = update.message.text.strip()
     subscription_id = context.user_data["setprompt"]["subscription_id"]
-    
+
     await db.set_subscription_prompt(subscription_id, text)
     context.user_data.pop("setprompt", None)
     await update.message.reply_text(gettext(lang, "prompt_saved"))
@@ -189,7 +322,7 @@ async def setprompt_generate_auto(
     msg = await update.message.reply_text(gettext(lang, "generating"))
     generated = await generate_prompt_from_description(text, settings.gemini_model)
     context.user_data["setprompt"]["generated_prompt"] = generated
-    
+
     await msg.edit_text(
         gettext(lang, "generated_preview", prompt=_html.escape(generated)),
         reply_markup=_regen_buttons(subscription_id, lang),
@@ -203,16 +336,16 @@ async def setprompt_confirm(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
     prompt = context.user_data.get("setprompt", {}).get("generated_prompt")
-    
+
     if not prompt:
         await query.edit_message_text(gettext(lang, "prompt_not_found"))
         return ConversationHandler.END
-        
+
     await db.set_subscription_prompt(subscription_id, prompt)
     context.user_data.pop("setprompt", None)
     await query.edit_message_text(gettext(lang, "prompt_saved"))
@@ -224,22 +357,22 @@ async def setprompt_regen(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     subscription_id = query.data.split(":", 2)[2]
     description = context.user_data.get("setprompt", {}).get("description")
-    
+
     if not description:
         await query.edit_message_text(gettext(lang, "generate_error"))
         return ConversationHandler.END
-        
+
     await query.edit_message_text(gettext(lang, "regenerating"))
     generated = await generate_prompt_from_description(
         description, settings.gemini_model
     )
     context.user_data["setprompt"]["generated_prompt"] = generated
-    
+
     await query.edit_message_text(
         gettext(lang, "generated_preview", prompt=_html.escape(generated)),
         reply_markup=_regen_buttons(subscription_id, lang),
@@ -253,7 +386,7 @@ async def setprompt_cancel(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    
+
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     context.user_data.pop("setprompt", None)
@@ -272,6 +405,7 @@ setprompt_conv = ConversationHandler(
             CallbackQueryHandler(setprompt_mode_manual, pattern=r"^setprompt:manual:"),
             CallbackQueryHandler(setprompt_mode_auto, pattern=r"^setprompt:auto:"),
             CallbackQueryHandler(setprompt_clear, pattern=r"^setprompt:clear:"),
+            CallbackQueryHandler(setprompt_enter_refine, pattern=r"^setprompt:refine:"),
         ],
         SETPROMPT_MANUAL_INPUT: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, setprompt_save_manual),
@@ -282,6 +416,13 @@ setprompt_conv = ConversationHandler(
         SETPROMPT_AUTO_REVIEW: [
             CallbackQueryHandler(setprompt_confirm, pattern=r"^setprompt:confirm:"),
             CallbackQueryHandler(setprompt_regen, pattern=r"^setprompt:regen:"),
+            CallbackQueryHandler(setprompt_cancel, pattern=r"^setprompt:cancel:"),
+            CallbackQueryHandler(setprompt_enter_refine, pattern=r"^setprompt:refine:"),
+        ],
+        SETPROMPT_REFINE: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, setprompt_refine_apply),
+            CallbackQueryHandler(setprompt_refine_save, pattern=r"^setprompt:refine_save:"),
+            CallbackQueryHandler(setprompt_refine_continue, pattern=r"^setprompt:refine_more:"),
             CallbackQueryHandler(setprompt_cancel, pattern=r"^setprompt:cancel:"),
         ],
     },
