@@ -3,12 +3,16 @@ import io
 import logging
 import re
 
-from telegram import InputFile, InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
+from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes, ConversationHandler
 
 from bot import database as db
-from bot.handlers.callbacks import TranscriptEpCallback, TranscriptNavCallback, TranscriptPodCallback
 from bot.feed import fetch_feed_entries, get_episode_content
+from bot.handlers.callbacks import (
+    TranscriptEpCallback,
+    TranscriptNavCallback,
+    TranscriptPodCallback,
+)
 from bot.i18n import gettext
 
 logger = logging.getLogger(__name__)
@@ -21,11 +25,18 @@ _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 def _safe_filename(podcast: str, episode: str) -> str:
     def _clean(s: str) -> str:
-        return _UNSAFE.sub('', s).strip().replace(' ', '_')[:50]
+        return _UNSAFE.sub("", s).strip().replace(" ", "_")[:50]
+
     return f"{_clean(podcast)}_{_clean(episode)}.md"
 
 
-def _build_markdown(podcast_title: str, episode_title: str, published_at: str | None, summary: str | None, transcript: str) -> str:
+def _build_markdown(
+    podcast_title: str,
+    episode_title: str,
+    published_at: str | None,
+    summary: str | None,
+    transcript: str,
+) -> str:
     summary_section = summary or "(not yet generated)"
     return (
         f"# {episode_title}\n"
@@ -50,12 +61,20 @@ async def cmd_transcript(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     buttons = [
         [
             InlineKeyboardButton(
-                sub.podcast_title, callback_data=TranscriptPodCallback(subscription_id=sub.id).serialize()
+                sub.podcast_title,
+                callback_data=TranscriptPodCallback(subscription_id=sub.id).serialize(),
             )
         ]
         for sub in subscriptions
     ]
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=TranscriptPodCallback(subscription_id=None).serialize())])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                gettext(lang, "cancel_btn"),
+                callback_data=TranscriptPodCallback(subscription_id=None).serialize(),
+            )
+        ]
+    )
     await update.message.reply_text(
         gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons)
     )
@@ -76,7 +95,9 @@ def _build_episode_keyboard(
         [
             InlineKeyboardButton(
                 ep["title"][:60],
-                callback_data=TranscriptEpCallback(subscription_id=subscription_id, index=offset + i).serialize(),
+                callback_data=TranscriptEpCallback(
+                    subscription_id=subscription_id, index=offset + i
+                ).serialize(),
             )
         ]
         for i, ep in enumerate(page)
@@ -86,19 +107,30 @@ def _build_episode_keyboard(
         nav_row.append(
             InlineKeyboardButton(
                 gettext(lang, "nav_prev"),
-                callback_data=TranscriptNavCallback(subscription_id=subscription_id, offset=offset - _PAGE_SIZE).serialize(),
+                callback_data=TranscriptNavCallback(
+                    subscription_id=subscription_id, offset=offset - _PAGE_SIZE
+                ).serialize(),
             )
         )
     if offset + _PAGE_SIZE < len(entries):
         nav_row.append(
             InlineKeyboardButton(
                 gettext(lang, "nav_next"),
-                callback_data=TranscriptNavCallback(subscription_id=subscription_id, offset=offset + _PAGE_SIZE).serialize(),
+                callback_data=TranscriptNavCallback(
+                    subscription_id=subscription_id, offset=offset + _PAGE_SIZE
+                ).serialize(),
             )
         )
     if nav_row:
         buttons.append(nav_row)
-    buttons.append([InlineKeyboardButton(gettext(lang, "cancel_btn"), callback_data=TranscriptEpCallback(subscription_id=None).serialize())])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                gettext(lang, "cancel_btn"),
+                callback_data=TranscriptEpCallback(subscription_id=None).serialize(),
+            )
+        ]
+    )
     return InlineKeyboardMarkup(buttons)
 
 
@@ -134,7 +166,9 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
         for e in entries
     ]
     context.user_data["transcript_offset"] = 0
-    keyboard = _build_episode_keyboard(context.user_data["transcript_eps"], 0, subscription_id, lang)
+    keyboard = _build_episode_keyboard(
+        context.user_data["transcript_eps"], 0, subscription_id, lang
+    )
     await query.edit_message_text(
         gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
         reply_markup=keyboard,
@@ -187,11 +221,7 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
     sub = await db.get_subscription_by_id(subscription_id)
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     ep = ep_data[episode_index]
-    guid = (
-        ep["entry"].get("id")
-        or ep["entry"].get("link")
-        or ep["entry"].get("title", "")
-    )
+    guid = ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
     existing = await db.get_episode_transcript(sub.podcast_id, guid)
 
     await query.edit_message_text(
@@ -223,7 +253,9 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
         episode_id = await db.get_episode_id(sub.podcast_id, guid)
         summary = await db.get_episode_summary(user_id, episode_id) if episode_id else None
         published_at = ep["entry"].get("published")
-        content = _build_markdown(ep["podcast_title"], ep["title"], published_at, summary, transcript)
+        content = _build_markdown(
+            ep["podcast_title"], ep["title"], published_at, summary, transcript
+        )
         file_obj = io.BytesIO(content.encode("utf-8"))
         await context.bot.send_document(
             chat_id=update.effective_chat.id,

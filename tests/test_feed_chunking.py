@@ -1,6 +1,6 @@
-from bot.feed import CORRECTION_CHUNK_CHARS, _split_chunks, get_episode_content
 from unittest.mock import AsyncMock as _AsyncMock
 
+from bot.feed import CORRECTION_CHUNK_CHARS, _split_chunks, get_episode_content
 
 # --- _split_chunks ---
 

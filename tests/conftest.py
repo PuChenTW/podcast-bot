@@ -1,6 +1,7 @@
+import pytest
+
 import bot.database as db_module
 from bot.database import init_db
-import pytest
 
 
 @pytest.fixture

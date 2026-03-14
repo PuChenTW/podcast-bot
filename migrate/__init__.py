@@ -90,9 +90,7 @@ async def migrate_down(
             print(f"Rolling back migration {version}: {down_path.name}")
             sql = down_path.read_text()
             await db.executescript(sql)
-            await db.execute(
-                "DELETE FROM schema_migrations WHERE version = ?", (version,)
-            )
+            await db.execute("DELETE FROM schema_migrations WHERE version = ?", (version,))
             await db.commit()
         print(f"Rolled back {len(to_rollback)} migration(s).")
 

@@ -1,13 +1,14 @@
-import pytest
-import aiosqlite
 from pathlib import Path
+
+import aiosqlite
+import pytest
 
 from migrate import (
     discover_migrations,
     ensure_migrations_table,
     get_applied_versions,
-    migrate_up,
     migrate_down,
+    migrate_up,
     status,
 )
 
@@ -35,6 +36,7 @@ def db_path(tmp_path):
 
 
 # --- discover_migrations ---
+
 
 def test_discover_finds_both_sorted(migrations_dir):
     results = discover_migrations(migrations_dir)
@@ -74,6 +76,7 @@ def test_discover_normalizes_version(migrations_dir):
 
 # --- ensure_migrations_table ---
 
+
 @pytest.mark.asyncio
 async def test_ensure_migrations_table_creates(db_path):
     async with aiosqlite.connect(db_path) as db:
@@ -93,6 +96,7 @@ async def test_ensure_migrations_table_idempotent(db_path):
 
 
 # --- get_applied_versions ---
+
 
 @pytest.mark.asyncio
 async def test_get_applied_versions_empty(db_path):
@@ -116,6 +120,7 @@ async def test_get_applied_versions_returns_inserted(db_path):
 
 
 # --- migrate_up ---
+
 
 @pytest.mark.asyncio
 async def test_migrate_up_applies_all(db_path, migrations_dir):
@@ -152,6 +157,7 @@ async def test_migrate_up_nothing_to_migrate_empty(db_path, tmp_path, capsys):
 
 
 # --- migrate_down ---
+
 
 @pytest.mark.asyncio
 async def test_migrate_down_rollback_to_zero(db_path, migrations_dir):
@@ -193,6 +199,7 @@ async def test_migrate_down_missing_down_exits(db_path, tmp_path):
 
 # --- status ---
 
+
 @pytest.mark.asyncio
 async def test_status_shows_pending(db_path, migrations_dir, capsys):
     await status(db_path, migrations_dir)
@@ -218,6 +225,7 @@ async def test_status_no_migrations(db_path, tmp_path, capsys):
 
 
 # --- Round-trip ---
+
 
 @pytest.mark.asyncio
 async def test_round_trip_up_down_up(db_path, migrations_dir):

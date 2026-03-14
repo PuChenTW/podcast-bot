@@ -5,15 +5,15 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
-    ConversationHandler,
     ContextTypes,
+    ConversationHandler,
     MessageHandler,
     filters,
 )
 
 from bot import database as db
-from bot.handlers.callbacks import SetpromptActionCallback, SetpromptPodCallback
 from bot.config import settings
+from bot.handlers.callbacks import SetpromptActionCallback, SetpromptPodCallback
 from bot.i18n import gettext
 from bot.summarizer import generate_prompt_from_description, refine_prompt
 
@@ -32,22 +32,34 @@ def _regen_buttons(subscription_id: str, lang: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    gettext(lang, "action_accept"), callback_data=SetpromptActionCallback(action="confirm", subscription_id=subscription_id).serialize()
+                    gettext(lang, "action_accept"),
+                    callback_data=SetpromptActionCallback(
+                        action="confirm", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    gettext(lang, "action_refine"), callback_data=SetpromptActionCallback(action="refine", subscription_id=subscription_id).serialize()
+                    gettext(lang, "action_refine"),
+                    callback_data=SetpromptActionCallback(
+                        action="refine", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    gettext(lang, "action_retry"), callback_data=SetpromptActionCallback(action="regen", subscription_id=subscription_id).serialize()
+                    gettext(lang, "action_retry"),
+                    callback_data=SetpromptActionCallback(
+                        action="regen", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    gettext(lang, "cancel_btn"), callback_data=SetpromptActionCallback(action="cancel", subscription_id=subscription_id).serialize()
+                    gettext(lang, "cancel_btn"),
+                    callback_data=SetpromptActionCallback(
+                        action="cancel", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
         ]
@@ -59,17 +71,26 @@ def _refine_review_buttons(subscription_id: str, lang: str) -> InlineKeyboardMar
         [
             [
                 InlineKeyboardButton(
-                    gettext(lang, "action_refine_save"), callback_data=SetpromptActionCallback(action="refine_save", subscription_id=subscription_id).serialize()
+                    gettext(lang, "action_refine_save"),
+                    callback_data=SetpromptActionCallback(
+                        action="refine_save", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    gettext(lang, "action_refine_more"), callback_data=SetpromptActionCallback(action="refine_more", subscription_id=subscription_id).serialize()
+                    gettext(lang, "action_refine_more"),
+                    callback_data=SetpromptActionCallback(
+                        action="refine_more", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    gettext(lang, "cancel_btn"), callback_data=SetpromptActionCallback(action="cancel", subscription_id=subscription_id).serialize()
+                    gettext(lang, "cancel_btn"),
+                    callback_data=SetpromptActionCallback(
+                        action="cancel", subscription_id=subscription_id
+                    ).serialize(),
                 )
             ],
         ]
@@ -89,7 +110,8 @@ async def cmd_setprompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     buttons = [
         [
             InlineKeyboardButton(
-                s.podcast_title, callback_data=SetpromptPodCallback(subscription_id=s.id).serialize()
+                s.podcast_title,
+                callback_data=SetpromptPodCallback(subscription_id=s.id).serialize(),
             )
         ]
         for s in subs
@@ -101,9 +123,7 @@ async def cmd_setprompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return SETPROMPT_CHOOSE_POD
 
 
-async def setprompt_pod_selected(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -118,33 +138,54 @@ async def setprompt_pod_selected(
 
     current = sub.custom_prompt
     status = (
-        gettext(lang, "setprompt_choose_action", title=sub.podcast_title, prompt=_html.escape(current[:80]) + "...")
+        gettext(
+            lang,
+            "setprompt_choose_action",
+            title=sub.podcast_title,
+            prompt=_html.escape(current[:80]) + "...",
+        )
         if current
         else gettext(lang, "setprompt_no_prompt", title=sub.podcast_title)
     )
     buttons = [
         [
             InlineKeyboardButton(
-                gettext(lang, "action_manual"), callback_data=SetpromptActionCallback(action="manual", subscription_id=subscription_id).serialize()
+                gettext(lang, "action_manual"),
+                callback_data=SetpromptActionCallback(
+                    action="manual", subscription_id=subscription_id
+                ).serialize(),
             )
         ],
         [
             InlineKeyboardButton(
-                gettext(lang, "action_auto"), callback_data=SetpromptActionCallback(action="auto", subscription_id=subscription_id).serialize()
+                gettext(lang, "action_auto"),
+                callback_data=SetpromptActionCallback(
+                    action="auto", subscription_id=subscription_id
+                ).serialize(),
             )
         ],
     ]
     if current:
-        buttons.append([
-            InlineKeyboardButton(
-                gettext(lang, "action_refine_existing"), callback_data=SetpromptActionCallback(action="refine", subscription_id=subscription_id).serialize()
-            )
-        ])
-    buttons.append([
-        InlineKeyboardButton(
-            gettext(lang, "action_reset"), callback_data=SetpromptActionCallback(action="clear", subscription_id=subscription_id).serialize(),
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    gettext(lang, "action_refine_existing"),
+                    callback_data=SetpromptActionCallback(
+                        action="refine", subscription_id=subscription_id
+                    ).serialize(),
+                )
+            ]
         )
-    ])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                gettext(lang, "action_reset"),
+                callback_data=SetpromptActionCallback(
+                    action="clear", subscription_id=subscription_id
+                ).serialize(),
+            )
+        ]
+    )
     await query.edit_message_text(
         f"<b>{_html.escape(sub.podcast_title)}</b>\n{status}",
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -153,9 +194,7 @@ async def setprompt_pod_selected(
     return SETPROMPT_CHOOSE_MODE
 
 
-async def setprompt_mode_manual(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_mode_manual(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -168,9 +207,7 @@ async def setprompt_mode_manual(
     return SETPROMPT_MANUAL_INPUT
 
 
-async def setprompt_mode_auto(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_mode_auto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -183,9 +220,7 @@ async def setprompt_mode_auto(
     return SETPROMPT_AUTO_INPUT
 
 
-async def setprompt_clear(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -198,9 +233,7 @@ async def setprompt_clear(
     return ConversationHandler.END
 
 
-async def setprompt_enter_refine(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_enter_refine(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -217,10 +250,12 @@ async def setprompt_enter_refine(
             return ConversationHandler.END
         current_prompt = sub.custom_prompt
 
-    context.user_data.setdefault("setprompt", {}).update({
-        "subscription_id": subscription_id,
-        "generated_prompt": current_prompt,
-    })
+    context.user_data.setdefault("setprompt", {}).update(
+        {
+            "subscription_id": subscription_id,
+            "generated_prompt": current_prompt,
+        }
+    )
     await query.edit_message_text(
         gettext(lang, "refine_enter", prompt=_html.escape(current_prompt)),
         parse_mode="HTML",
@@ -228,9 +263,7 @@ async def setprompt_enter_refine(
     return SETPROMPT_REFINE
 
 
-async def setprompt_refine_apply(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_refine_apply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     instruction = update.message.text.strip()
@@ -257,9 +290,7 @@ async def setprompt_refine_apply(
     return SETPROMPT_REFINE
 
 
-async def setprompt_refine_save(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_refine_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -278,9 +309,7 @@ async def setprompt_refine_save(
     return ConversationHandler.END
 
 
-async def setprompt_refine_continue(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_refine_continue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -301,9 +330,7 @@ async def setprompt_refine_continue(
     return SETPROMPT_REFINE
 
 
-async def setprompt_save_manual(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_save_manual(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     text = update.message.text.strip()
@@ -315,9 +342,7 @@ async def setprompt_save_manual(
     return ConversationHandler.END
 
 
-async def setprompt_generate_auto(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_generate_auto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     lang = await db.get_user_language(user.id)
     text = update.message.text.strip()
@@ -336,9 +361,7 @@ async def setprompt_generate_auto(
     return SETPROMPT_AUTO_REVIEW
 
 
-async def setprompt_confirm(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -357,9 +380,7 @@ async def setprompt_confirm(
     return ConversationHandler.END
 
 
-async def setprompt_regen(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_regen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -373,9 +394,7 @@ async def setprompt_regen(
         return ConversationHandler.END
 
     await query.edit_message_text(gettext(lang, "regenerating"))
-    generated = await generate_prompt_from_description(
-        description, settings.gemini_model
-    )
+    generated = await generate_prompt_from_description(description, settings.gemini_model)
     context.user_data["setprompt"]["generated_prompt"] = generated
 
     await query.edit_message_text(
@@ -386,9 +405,7 @@ async def setprompt_regen(
     return SETPROMPT_AUTO_REVIEW
 
 
-async def setprompt_cancel(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def setprompt_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 

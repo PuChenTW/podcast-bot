@@ -17,8 +17,21 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio"]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff>=0.15.6",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 filterwarnings = ["ignore::telegram.warnings.PTBUserWarning"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"

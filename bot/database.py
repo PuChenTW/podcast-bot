@@ -1,6 +1,6 @@
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-import logging
 
 import aiosqlite
 from pydantic import BaseModel
@@ -18,7 +18,7 @@ class Subscription(BaseModel):
     user_id: str
     podcast_id: str
     podcast_title: str  # populated via JOIN to podcasts
-    rss_url: str        # populated via JOIN to podcasts
+    rss_url: str  # populated via JOIN to podcasts
     custom_prompt: str | None
 
 
@@ -42,7 +42,8 @@ async def init_db() -> None:
         await migrate.ensure_migrations_table(db)
         applied = await migrate.get_applied_versions(db)
         pending = [
-            (v, up) for v, up, _ in migrate.discover_migrations(migrate.DEFAULT_MIGRATIONS_DIR)
+            (v, up)
+            for v, up, _ in migrate.discover_migrations(migrate.DEFAULT_MIGRATIONS_DIR)
             if v not in applied
         ]
         for version, up_path in pending:
@@ -101,9 +102,7 @@ async def get_or_create_podcast(rss_url: str, title: str) -> str:
             (_new_id(), rss_url, title),
         )
         await db.commit()
-        async with db.execute(
-            "SELECT id FROM podcasts WHERE rss_url = ?", (rss_url,)
-        ) as cursor:
+        async with db.execute("SELECT id FROM podcasts WHERE rss_url = ?", (rss_url,)) as cursor:
             row = await cursor.fetchone()
         return row[0]
 

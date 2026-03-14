@@ -1,7 +1,7 @@
 import asyncio
 import sys
 
-from migrate import migrate_up, migrate_down, status
+from migrate import migrate_down, migrate_up, status
 
 args = sys.argv[1:]
 if not args or args[0] == "up":

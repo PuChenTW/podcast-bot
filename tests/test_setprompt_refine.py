@@ -1,7 +1,7 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from telegram import Update, User, Message, CallbackQuery
-from telegram.ext import ContextTypes
+
+import pytest
+from telegram import CallbackQuery, Message, Update, User
 
 
 def _make_callback_query(data: str, user_id: int = 1) -> tuple[Update, MagicMock]:
@@ -32,11 +32,13 @@ def _make_message_update(text: str, user_id: int = 1) -> tuple[Update, MagicMock
 @pytest.mark.asyncio
 async def test_setprompt_enter_refine_from_user_data():
     """enter_refine uses user_data generated_prompt when available."""
-    from bot.handlers.setprompt import setprompt_enter_refine, SETPROMPT_REFINE
+    from bot.handlers.setprompt import SETPROMPT_REFINE, setprompt_enter_refine
 
     update, query = _make_callback_query("setprompt:refine:sub123")
     context = MagicMock()
-    context.user_data = {"setprompt": {"generated_prompt": "existing prompt", "subscription_id": "sub123"}}
+    context.user_data = {
+        "setprompt": {"generated_prompt": "existing prompt", "subscription_id": "sub123"}
+    }
 
     with patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")):
         result = await setprompt_enter_refine(update, context)
@@ -49,8 +51,8 @@ async def test_setprompt_enter_refine_from_user_data():
 @pytest.mark.asyncio
 async def test_setprompt_enter_refine_from_db():
     """enter_refine loads from DB when user_data has no generated_prompt."""
-    from bot.handlers.setprompt import setprompt_enter_refine, SETPROMPT_REFINE
     from bot.database import Subscription
+    from bot.handlers.setprompt import SETPROMPT_REFINE, setprompt_enter_refine
 
     update, query = _make_callback_query("setprompt:refine:sub123")
     context = MagicMock()
@@ -72,11 +74,13 @@ async def test_setprompt_enter_refine_from_db():
 @pytest.mark.asyncio
 async def test_setprompt_refine_apply():
     """refine_apply calls refine_prompt and stays in SETPROMPT_REFINE state."""
-    from bot.handlers.setprompt import setprompt_refine_apply, SETPROMPT_REFINE
+    from bot.handlers.setprompt import SETPROMPT_REFINE, setprompt_refine_apply
 
     update, msg = _make_message_update("make it shorter")
     context = MagicMock()
-    context.user_data = {"setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}}
+    context.user_data = {
+        "setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}
+    }
 
     with (
         patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),
@@ -91,12 +95,15 @@ async def test_setprompt_refine_apply():
 @pytest.mark.asyncio
 async def test_setprompt_refine_save():
     """refine_save writes to DB and ends conversation."""
-    from bot.handlers.setprompt import setprompt_refine_save
     from telegram.ext import ConversationHandler
+
+    from bot.handlers.setprompt import setprompt_refine_save
 
     update, query = _make_callback_query("setprompt:refine_save:sub123")
     context = MagicMock()
-    context.user_data = {"setprompt": {"generated_prompt": "final prompt", "subscription_id": "sub123"}}
+    context.user_data = {
+        "setprompt": {"generated_prompt": "final prompt", "subscription_id": "sub123"}
+    }
 
     with (
         patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),
@@ -111,11 +118,13 @@ async def test_setprompt_refine_save():
 @pytest.mark.asyncio
 async def test_setprompt_refine_apply_empty_instruction():
     """refine_apply with empty instruction should not call refine_prompt."""
-    from bot.handlers.setprompt import setprompt_refine_apply, SETPROMPT_REFINE
+    from bot.handlers.setprompt import SETPROMPT_REFINE, setprompt_refine_apply
 
     update, msg = _make_message_update("   ")  # whitespace only
     context = MagicMock()
-    context.user_data = {"setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}}
+    context.user_data = {
+        "setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}
+    }
 
     with (
         patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),

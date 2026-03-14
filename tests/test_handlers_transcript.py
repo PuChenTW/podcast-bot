@@ -4,17 +4,20 @@ import pytest
 from telegram import Update
 from telegram.ext import ConversationHandler
 
-from bot.database import add_subscription, get_or_create_user, get_subscription_by_id, mark_episode_seen
+from bot.database import (
+    add_subscription,
+    get_or_create_user,
+    get_subscription_by_id,
+    mark_episode_seen,
+)
 from bot.handlers.transcript import (
-    TRANSCRIPT_CHOOSE_POD,
-    TRANSCRIPT_CHOOSE_EP,
     _build_markdown,
     _safe_filename,
     transcript_ep_selected,
 )
 
-
 # --- _safe_filename ---
+
 
 def test_safe_filename_basic():
     assert _safe_filename("My Podcast", "Episode 1") == "My_Podcast_Episode_1.md"
@@ -43,6 +46,7 @@ def test_safe_filename_truncates_long_names():
 
 # --- _build_markdown ---
 
+
 def test_build_markdown_with_summary():
     md = _build_markdown("My Pod", "Ep 1", "2024-01-01", "Great ep", "Hello world")
     assert "# Ep 1" in md
@@ -58,6 +62,7 @@ def test_build_markdown_without_summary():
 
 
 # --- transcript_ep_selected ---
+
 
 @pytest.mark.asyncio
 async def test_transcript_ep_selected_uses_cached_transcript(tmp_db):
@@ -76,17 +81,21 @@ async def test_transcript_ep_selected_uses_cached_transcript(tmp_db):
 
     context = MagicMock()
     context.user_data = {
-        "transcript_eps": [{
-            "title": "My Ep",
-            "entry": {"id": "guid-abc", "published": "Mon, 01 Jan 2024 00:00:00 +0000"},
-            "podcast_title": "My Pod",
-            "subscription_id": sub_id,
-        }]
+        "transcript_eps": [
+            {
+                "title": "My Ep",
+                "entry": {"id": "guid-abc", "published": "Mon, 01 Jan 2024 00:00:00 +0000"},
+                "podcast_title": "My Pod",
+                "subscription_id": sub_id,
+            }
+        ]
     }
     context.bot = AsyncMock()
 
-    with patch("bot.handlers.transcript.db.get_user_language", return_value="en"), \
-         patch("bot.handlers.transcript.get_episode_content") as mock_fetch:
+    with (
+        patch("bot.handlers.transcript.db.get_user_language", return_value="en"),
+        patch("bot.handlers.transcript.get_episode_content") as mock_fetch,
+    ):
         result = await transcript_ep_selected(update, context)
 
     mock_fetch.assert_not_called()
@@ -112,17 +121,25 @@ async def test_transcript_ep_selected_fetches_when_missing(tmp_db):
 
     context = MagicMock()
     context.user_data = {
-        "transcript_eps": [{
-            "title": "My Ep",
-            "entry": {"id": "guid-xyz", "published": None},
-            "podcast_title": "My Pod",
-            "subscription_id": sub_id,
-        }]
+        "transcript_eps": [
+            {
+                "title": "My Ep",
+                "entry": {"id": "guid-xyz", "published": None},
+                "podcast_title": "My Pod",
+                "subscription_id": sub_id,
+            }
+        ]
     }
     context.bot = AsyncMock()
 
-    with patch("bot.handlers.transcript.db.get_user_language", return_value="en"), \
-         patch("bot.handlers.transcript.get_episode_content", new_callable=AsyncMock, return_value="fresh transcript") as mock_fetch:
+    with (
+        patch("bot.handlers.transcript.db.get_user_language", return_value="en"),
+        patch(
+            "bot.handlers.transcript.get_episode_content",
+            new_callable=AsyncMock,
+            return_value="fresh transcript",
+        ) as mock_fetch,
+    ):
         result = await transcript_ep_selected(update, context)
 
     mock_fetch.assert_awaited_once()

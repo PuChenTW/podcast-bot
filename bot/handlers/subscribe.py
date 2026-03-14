@@ -4,15 +4,15 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
-    ConversationHandler,
     ContextTypes,
+    ConversationHandler,
     MessageHandler,
     filters,
 )
 
 from bot import database as db
-from bot.handlers.callbacks import UnsubCallback
 from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
+from bot.handlers.callbacks import UnsubCallback
 from bot.i18n import gettext
 
 logger = logging.getLogger(__name__)
@@ -33,9 +33,7 @@ async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return SUBSCRIBE_WAITING_URL
 
 
-async def subscribe_url_received(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def subscribe_url_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     raw_url = update.message.text.strip()
     user = update.effective_user
     chat_id = update.effective_chat.id
@@ -95,13 +93,18 @@ async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return ConversationHandler.END
 
     buttons = [
-        [InlineKeyboardButton(s.podcast_title, callback_data=UnsubCallback(subscription_id=s.id).serialize())]
+        [
+            InlineKeyboardButton(
+                s.podcast_title, callback_data=UnsubCallback(subscription_id=s.id).serialize()
+            )
+        ]
         for s in subs
     ]
     buttons.append(
         [
             InlineKeyboardButton(
-                gettext(lang, "cancel_btn"), callback_data=UnsubCallback(subscription_id=None).serialize()
+                gettext(lang, "cancel_btn"),
+                callback_data=UnsubCallback(subscription_id=None).serialize(),
             )
         ]
     )
@@ -126,9 +129,7 @@ async def unsub_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return ConversationHandler.END
 
     await db.remove_subscription_by_id(target)
-    await query.edit_message_text(
-        gettext(lang, "unsub_success", title=sub.podcast_title)
-    )
+    await query.edit_message_text(gettext(lang, "unsub_success", title=sub.podcast_title))
     return ConversationHandler.END
 
 
@@ -152,9 +153,7 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     lines = [f"{i + 1}. {s.podcast_title}" for i, s in enumerate(subs)]
-    await update.message.reply_text(
-        f"{gettext(lang, 'your_subscriptions')}\n" + "\n".join(lines)
-    )
+    await update.message.reply_text(f"{gettext(lang, 'your_subscriptions')}\n" + "\n".join(lines))
 
 
 unsubscribe_conv = ConversationHandler(

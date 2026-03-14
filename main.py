@@ -8,20 +8,20 @@ from telegram.ext import (
 
 from bot.config import settings
 from bot.database import init_db
-from bot.feed import GroqTranscriber, Transcriber, WhisperTranscriber
 from bot.handlers import (
     cmd_list,
     cmd_reload,
     cmd_start,
     digest_conv,
-    transcript_conv,
+    language_callback_handler,
+    language_handler,
     setprompt_conv,
     subscribe_conv,
+    transcript_conv,
     unsubscribe_conv,
-    language_handler,
-    language_callback_handler,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
+from bot.transcribers import GroqTranscriber, Transcriber, TranscriberPipeline, WhisperTranscriber
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -33,7 +33,9 @@ logger = logging.getLogger(__name__)
 
 def _build_transcriber(s) -> Transcriber:
     if s.transcriber_backend == "groq":
-        return GroqTranscriber(s.groq_api_key)
+        return TranscriberPipeline(
+            [GroqTranscriber(s.groq_api_key), WhisperTranscriber(s.whisper_model)]
+        )
     return WhisperTranscriber(s.whisper_model)
 
 
@@ -41,17 +43,19 @@ async def post_init(app: Application) -> None:
     await init_db()
     app.bot_data["transcriber"] = _build_transcriber(settings)
     await start_scheduler(app)
-    await app.bot.set_my_commands([
-        ("start", "Show available commands"),
-        ("subscribe", "Subscribe to a podcast RSS feed"),
-        ("unsubscribe", "Remove a subscription"),
-        ("list", "List your subscriptions"),
-        ("digest", "Get a summary of a specific episode"),
-        ("transcript", "Download raw transcript of an episode"),
-        ("setprompt", "Customize summarization style per podcast"),
-        ("language", "Set language preference"),
-        ("reload", "Pull latest code and restart"),
-    ])
+    await app.bot.set_my_commands(
+        [
+            ("start", "Show available commands"),
+            ("subscribe", "Subscribe to a podcast RSS feed"),
+            ("unsubscribe", "Remove a subscription"),
+            ("list", "List your subscriptions"),
+            ("digest", "Get a summary of a specific episode"),
+            ("transcript", "Download raw transcript of an episode"),
+            ("setprompt", "Customize summarization style per podcast"),
+            ("language", "Set language preference"),
+            ("reload", "Pull latest code and restart"),
+        ]
+    )
     logger.info("Bot initialized and ready.")
 
 

@@ -61,7 +61,7 @@ TRANSLATIONS = {
         "action_refine": "Refine",
         "action_refine_save": "Save",
         "action_refine_more": "Keep Refining",
-        "refine_enter": "Current prompt:\n\n<blockquote>{prompt}</blockquote>\n\nType your refinement instruction (e.g. \"more casual tone\", \"emphasize key takeaways\"):",
+        "refine_enter": 'Current prompt:\n\n<blockquote>{prompt}</blockquote>\n\nType your refinement instruction (e.g. "more casual tone", "emphasize key takeaways"):',
         "refining": "Refining...",
         # Transcript
         "transcript_fetching": "Fetching transcript for <i>{title}</i>…",

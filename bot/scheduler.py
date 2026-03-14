@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 from functools import partial
 
 from apscheduler import AsyncScheduler
@@ -65,7 +64,9 @@ async def poll_all_feeds(app: Application) -> None:
             except Exception as exc:
                 logger.error("Error processing episode %s: %s", episode.title, exc)
                 # Still mark as seen to avoid retrying broken episodes indefinitely
-                await db.mark_episode_seen(sub.user_id, sub.podcast_id, episode.guid, title=episode.title)
+                await db.mark_episode_seen(
+                    sub.user_id, sub.podcast_id, episode.guid, title=episode.title
+                )
 
             await asyncio.sleep(1)  # Telegram rate limit
 

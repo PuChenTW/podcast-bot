@@ -77,6 +77,4 @@ class TestSendHtml:
     async def test_kwargs_forwarded(self):
         send_fn = AsyncMock()
         await send_html(send_fn, "hello", disable_web_page_preview=True)
-        send_fn.assert_called_once_with(
-            "hello", parse_mode="HTML", disable_web_page_preview=True
-        )
+        send_fn.assert_called_once_with("hello", parse_mode="HTML", disable_web_page_preview=True)

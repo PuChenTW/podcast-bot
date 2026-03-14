@@ -1,5 +1,3 @@
-import pytest
-
 from bot.database import (
     add_subscription,
     get_all_subscriptions,
@@ -166,7 +164,9 @@ class TestEpisodeSeen:
         sub = await get_subscription_by_id(sub_id)
         podcast_id = sub.podcast_id
         await mark_episode_seen(uid, podcast_id, "guid123", summary="first")
-        await mark_episode_seen(uid, podcast_id, "guid123", summary="second")  # ON CONFLICT DO UPDATE
+        await mark_episode_seen(
+            uid, podcast_id, "guid123", summary="second"
+        )  # ON CONFLICT DO UPDATE
 
     async def test_second_call_with_summary_updates(self, tmp_db):
         uid = await _make_user()

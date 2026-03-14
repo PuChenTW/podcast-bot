@@ -4,21 +4,17 @@ import pytest
 from telegram import Message, Update
 from telegram.ext import ConversationHandler
 
+from bot.handlers import setprompt_conv, subscribe_conv
 from bot.handlers.setprompt import (
-    SETPROMPT_MANUAL_INPUT,
-    SETPROMPT_AUTO_INPUT,
-    SETPROMPT_AUTO_REVIEW,
     SETPROMPT_CHOOSE_POD,
     cmd_setprompt,
     setprompt_save_manual,
-    setprompt_generate_auto,
 )
 from bot.handlers.subscribe import (
     SUBSCRIBE_WAITING_URL,
     cmd_subscribe,
     subscribe_url_received,
 )
-from bot.handlers import subscribe_conv, setprompt_conv
 
 
 def make_message_update(text: str):
@@ -42,7 +38,9 @@ async def test_manual_mode_saves_prompt():
     update, message = make_message_update("My custom prompt text")
     ctx = make_context({"setprompt": {"subscription_id": "sub-123"}})
 
-    with patch("bot.handlers.setprompt.db.set_subscription_prompt", new_callable=AsyncMock) as mock_save:
+    with patch(
+        "bot.handlers.setprompt.db.set_subscription_prompt", new_callable=AsyncMock
+    ) as mock_save:
         result = await setprompt_save_manual(update, ctx)
 
     mock_save.assert_awaited_once_with("sub-123", "My custom prompt text")
@@ -71,8 +69,16 @@ async def test_cmd_setprompt_returns_choose_pod_state():
     fake_sub.id = "sub-999"
     fake_sub.podcast_title = "Test Podcast"
 
-    with patch("bot.handlers.setprompt.db.get_or_create_user", new_callable=AsyncMock, return_value="user-1"):
-        with patch("bot.handlers.setprompt.db.get_subscriptions", new_callable=AsyncMock, return_value=[fake_sub]):
+    with patch(
+        "bot.handlers.setprompt.db.get_or_create_user",
+        new_callable=AsyncMock,
+        return_value="user-1",
+    ):
+        with patch(
+            "bot.handlers.setprompt.db.get_subscriptions",
+            new_callable=AsyncMock,
+            return_value=[fake_sub],
+        ):
             result = await cmd_setprompt(update, ctx)
 
     assert result == SETPROMPT_CHOOSE_POD
@@ -87,7 +93,11 @@ async def test_subscribe_url_received_returns_end_on_bad_url():
     sent_msg = AsyncMock()
     message.reply_text.return_value = sent_msg
 
-    with patch("bot.handlers.subscribe.resolve_rss_url", new_callable=AsyncMock, side_effect=ValueError("Bad URL")):
+    with patch(
+        "bot.handlers.subscribe.resolve_rss_url",
+        new_callable=AsyncMock,
+        side_effect=ValueError("Bad URL"),
+    ):
         result = await subscribe_url_received(update, ctx)
 
     assert result == ConversationHandler.END
@@ -95,11 +105,13 @@ async def test_subscribe_url_received_returns_end_on_bad_url():
 
 def test_subscribe_conv_is_conversation_handler():
     from telegram.ext import ConversationHandler as CH
+
     assert isinstance(subscribe_conv, CH)
 
 
 def test_setprompt_conv_is_conversation_handler():
     from telegram.ext import ConversationHandler as CH
+
     assert isinstance(setprompt_conv, CH)
 
 

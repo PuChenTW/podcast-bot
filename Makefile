@@ -13,6 +13,12 @@ migrate-status:
 test:
 	uv run pytest tests/ -v
 
+lint:
+	uv run ruff check .
+
+format:
+	uv run ruff format .
+
 docker-build:
 	docker compose build
 

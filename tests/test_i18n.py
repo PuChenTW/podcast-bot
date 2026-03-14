@@ -4,8 +4,12 @@ from bot.i18n import TRANSLATIONS, gettext
 def test_refine_keys_present():
     # Direct dict check bypasses gettext's zh-tw fallback, which would mask missing "en" keys
     refine_keys = (
-        "action_refine_existing", "action_refine", "action_refine_save",
-        "action_refine_more", "refining", "refine_enter",
+        "action_refine_existing",
+        "action_refine",
+        "action_refine_save",
+        "action_refine_more",
+        "refining",
+        "refine_enter",
     )
     for lang in ("en", "zh-tw"):
         for key in refine_keys:
