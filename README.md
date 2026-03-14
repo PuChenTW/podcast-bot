@@ -85,7 +85,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
 | `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
 | `bot/feed.py` | RSS parsing, transcript/audio fetching; delegates transcription via injected `Transcriber` |
-| `bot/transcribers/` | `Transcriber` protocol; `WhisperTranscriber`; `GroqTranscriber` (auto-splits >20 MB); `TranscriberPipeline` fallback orchestrator |
+| `bot/transcribers/` | `Transcriber` protocol; `ChunkTranscriber` protocol; `WhisperTranscriber`; `GroqTranscriber`; `AudioPipeline` (format conversion + splitting); `TranscriberPipeline` fallback orchestrator |
 | `bot/summarizer.py` | Pydantic AI (Gemini) agent returning plain Markdown; prompt generation and refinement |
 | `bot/scheduler.py` | Polls subscriptions on interval; marks episodes seen even on error |
 | `bot/handlers/` | 7 handler modules: `subscribe.py`, `digest.py`, `transcript.py`, `setprompt.py`, `language.py`, `admin.py`, `callbacks.py` |
@@ -99,7 +99,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 Episode content is fetched via a 3-strategy waterfall, stopping at the first success:
 
 1. **Transcript URL** — some podcast feeds publish a direct transcript link; fetched as-is
-2. **Audio transcription** — downloads the episode audio (hard cap: 200 MB) and transcribes via the configured backend (`TRANSCRIBER=whisper` runs `faster-whisper` locally; `TRANSCRIBER=groq` sends to Groq's Whisper API, splitting files >20 MB into parallel chunks automatically, with automatic fallback to local Whisper on failure)
+2. **Audio transcription** — downloads the episode audio (hard cap: 200 MB) and transcribes via the configured backend (`TRANSCRIBER=whisper` runs `faster-whisper` locally; `TRANSCRIBER=groq` sends to Groq's Whisper API with automatic fallback to local Whisper on failure); `AudioPipeline` handles format conversion and file splitting for both backends
 3. **Description fallback** — uses the RSS `<description>` field when audio/transcript are unavailable
 
 Transcripts are capped at 500 KB / 100 K characters before being sent to Gemini. Long transcripts are chunked and corrected in parallel via Gemini before summarization.

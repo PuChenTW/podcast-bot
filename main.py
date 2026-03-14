@@ -21,7 +21,7 @@ from bot.handlers import (
     unsubscribe_conv,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
-from bot.transcribers import GroqTranscriber, Transcriber, TranscriberPipeline, WhisperTranscriber
+from bot.transcribers import AudioPipeline, GroqTranscriber, Transcriber, TranscriberPipeline, WhisperTranscriber
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 def _build_transcriber(s) -> Transcriber:
     if s.transcriber_backend == "groq":
         return TranscriberPipeline(
-            [GroqTranscriber(s.groq_api_key), WhisperTranscriber(s.whisper_model)]
+            [AudioPipeline(GroqTranscriber(s.groq_api_key)), AudioPipeline(WhisperTranscriber(s.whisper_model))]
         )
-    return WhisperTranscriber(s.whisper_model)
+    return AudioPipeline(WhisperTranscriber(s.whisper_model))
 
 
 async def post_init(app: Application) -> None:

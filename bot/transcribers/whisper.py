@@ -3,17 +3,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+WHISPER_MAX_BYTES = 2_000_000_000  # effectively unlimited for local processing
+
 
 class WhisperTranscriber:
+    accepted_formats = ("mp3", "wav", "flac", "ogg", "m4a", "aac")
+    max_bytes = WHISPER_MAX_BYTES
+
     def __init__(self, model_size: str) -> None:
         self._model_size = model_size
 
-    async def transcribe(self, audio_path: str) -> str | None:
-        try:
-            return await asyncio.to_thread(self._run, audio_path)
-        except Exception as exc:
-            logger.warning("Transcription failed for %s: %s", audio_path, exc)
-            return None
+    async def transcribe_chunk(self, path: str) -> str:
+        return await asyncio.to_thread(self._run, path)
 
     def _run(self, path: str) -> str:
         from faster_whisper import WhisperModel

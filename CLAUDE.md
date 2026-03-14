@@ -52,7 +52,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
 | `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
 | `bot/feed.py` | RSS parsing, transcript/audio fetching; delegates transcription via injected `Transcriber` |
-| `bot/transcribers/` | `Transcriber` protocol; `WhisperTranscriber` (local faster-whisper); `GroqTranscriber` (Groq API, auto-splits >20MB via ffmpeg); `TranscriberPipeline` fallback orchestrator |
+| `bot/transcribers/` | `Transcriber` protocol; `ChunkTranscriber` protocol; `WhisperTranscriber` (local faster-whisper); `GroqTranscriber` (Groq API); `AudioPipeline` (format conversion + splitting); `TranscriberPipeline` fallback orchestrator |
 | `bot/summarizer.py` | Pydantic AI (Gemini) agent returning `str` (plain Markdown) |
 | `bot/scheduler.py` | `AsyncScheduler` polls subscriptions every `POLL_INTERVAL_SECONDS`; marks episodes seen even on error |
 | `bot/handlers/` | Telegram command handlers split into `subscribe.py`, `digest.py`, `setprompt.py`, `language.py`; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
@@ -89,6 +89,10 @@ episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, tran
 user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified_at)
   UNIQUE(user_id, episode_id)  -- per-user delivery record
 ```
+
+## Code Style
+
+**Ruff line limit is 200.** Long string literals (e.g. prompt constants in `bot/summarizer.py`) must use implicit string concatenation across lines — not triple-quoted single-liners.
 
 ## Key Patterns & Gotchas
 

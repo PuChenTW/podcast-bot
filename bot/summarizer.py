@@ -2,24 +2,22 @@ from functools import lru_cache
 
 from pydantic_ai import Agent
 
-_DEFAULT_SYSTEM_PROMPT = """You are a podcast summarizer. Given transcript or description text from a podcast episode, produce a concise summary in Markdown. Ignore any sponsored content or advertisements.
+_DEFAULT_SYSTEM_PROMPT = (
+    "You are a podcast summarizer. Given transcript or description text from a podcast episode,"
+    " produce a concise summary in Markdown. Ignore any sponsored content or advertisements.\n"
+    "\nFormat your response as:\n"
+    "**{punchy one-sentence headline}**\n"
+    "\n• key point 1\n• key point 2\n• key point 3\n(up to 5 key points)\n"
+    "\n**Takeaway:** one actionable sentence\n"
+)
 
-Format your response as:
-**{punchy one-sentence headline}**
-
-• key point 1
-• key point 2
-• key point 3
-(up to 5 key points)
-
-**Takeaway:** one actionable sentence
-"""
-
-_META_PROMPT = """You are a prompt engineer. Given a user's description of a podcast and their desired summary style, write a system prompt for an AI podcast summarizer that matches the user's expectations. Do not impose any fixed output format — let the user's description dictate the style and depth.
-
-User's description: {user_description}
-
-Output only the system prompt text, nothing else."""
+_META_PROMPT = (
+    "You are a prompt engineer. Given a user's description of a podcast and their desired summary style,"
+    " write a system prompt for an AI podcast summarizer that matches the user's expectations."
+    " Do not impose any fixed output format — let the user's description dictate the style and depth.\n"
+    "\nUser's description: {user_description}\n"
+    "\nOutput only the system prompt text, nothing else."
+)
 
 _REFINE_PROMPT_PREFIX = """You are a prompt engineer. You have an existing system prompt for an AI podcast summarizer. Apply the user's refinement instruction to improve it.
 
@@ -27,7 +25,13 @@ Existing prompt:
 """
 _REFINE_PROMPT_SUFFIX = "\n\nOutput only the revised system prompt text, nothing else."
 
-_CORRECTION_SYSTEM_PROMPT = """You are a transcript corrector. Given a podcast transcript that may contain ASR (automatic speech recognition) errors, correct misspelled words, misheard terms, and obvious errors using the provided episode context (podcast title, episode title, description). Preserve the original meaning and structure. Return only the corrected transcript text, nothing else."""
+_CORRECTION_SYSTEM_PROMPT = (
+    "You are a transcript corrector. Given a podcast transcript that may contain ASR"
+    " (automatic speech recognition) errors, correct misspelled words, misheard terms,"
+    " and obvious errors using the provided episode context (podcast title, episode title,"
+    " description). Preserve the original meaning and structure."
+    " Return only the corrected transcript text, nothing else."
+)
 
 
 @lru_cache(maxsize=16)

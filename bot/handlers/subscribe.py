@@ -60,7 +60,7 @@ async def subscribe_url_received(update: Update, context: ContextTypes.DEFAULT_T
 
     title = parse_podcast_title(parsed)
     user_id = await db.get_or_create_user(user.id, chat_id)
-    sub_id = await db.add_subscription(user_id, title, rss_url)
+    await db.add_subscription(user_id, title, rss_url)
     podcast_id = await db.get_or_create_podcast(rss_url, title)
 
     # Mark all current episodes as seen — no backlog flood
