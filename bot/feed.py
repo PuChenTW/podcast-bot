@@ -397,7 +397,8 @@ async def fetch_feed_episodes(
 
 
 async def fetch_new_episodes(
-    subscription_id: str,
+    user_id: str,
+    podcast_id: str,
     rss_url: str,
     is_seen_fn,
     transcriber: Transcriber = None,
@@ -413,7 +414,7 @@ async def fetch_new_episodes(
         guid = entry.get("id") or entry.get("link") or entry.get("title", "")
         if not guid:
             continue
-        if await is_seen_fn(subscription_id, guid):
+        if await is_seen_fn(user_id, podcast_id, guid):
             continue
 
         ep = await _parse_entry(entry, transcriber, podcast_title, corrector)

@@ -211,14 +211,14 @@ class TestFetchNewEpisodes:
         mock_feed.bozo = False
         mock_feed.entries = [entry1, entry2]
 
-        async def is_seen(sub_id, guid):
+        async def is_seen(user_id, podcast_id, guid):
             return guid == "guid1"
 
         with (
             patch("bot.feed.feedparser.parse", return_value=mock_feed),
             patch("bot.feed.get_episode_content", AsyncMock(return_value="content")),
         ):
-            result = await fetch_new_episodes("sub1", "http://example.com/feed.rss", is_seen)
+            result = await fetch_new_episodes("user1", "pod1", "http://example.com/feed.rss", is_seen)
         assert len(result) == 1
         assert result[0].guid == "guid2"
 
@@ -228,4 +228,4 @@ class TestFetchNewEpisodes:
         mock_feed.entries = []
         with patch("bot.feed.feedparser.parse", return_value=mock_feed):
             with pytest.raises(ValueError):
-                await fetch_new_episodes("sub1", "http://bad.url/feed.rss", AsyncMock())
+                await fetch_new_episodes("user1", "pod1", "http://bad.url/feed.rss", AsyncMock())

@@ -15,33 +15,48 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS podcasts (
+    id TEXT PRIMARY KEY,
+    rss_url TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     user_id TEXT REFERENCES users(id),
-    podcast_title TEXT NOT NULL,
-    rss_url TEXT NOT NULL,
+    podcast_id TEXT REFERENCES podcasts(id),
     custom_prompt TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS episodes (
     id TEXT PRIMARY KEY,
-    subscription_id TEXT REFERENCES subscriptions(id),
+    podcast_id TEXT REFERENCES podcasts(id),
     episode_guid TEXT NOT NULL,
     title TEXT,
     published_at TIMESTAMP,
-    summary TEXT,
     transcript TEXT,
+    UNIQUE(podcast_id, episode_guid)
+);
+
+CREATE TABLE IF NOT EXISTS user_episodes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id),
+    episode_id TEXT REFERENCES episodes(id),
+    summary TEXT,
     notified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(subscription_id, episode_guid)
+    UNIQUE(user_id, episode_id)
 );
 """
 
 
 class Subscription(BaseModel):
     id: str
-    podcast_title: str
-    rss_url: str
+    user_id: str
+    podcast_id: str
+    podcast_title: str  # populated via JOIN to podcasts
+    rss_url: str        # populated via JOIN to podcasts
     custom_prompt: str | None
 
 
@@ -103,12 +118,27 @@ async def set_user_language(telegram_user_id: int, language: str) -> None:
         await db.commit()
 
 
+async def get_or_create_podcast(rss_url: str, title: str) -> str:
+    async with _connect() as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO podcasts (id, rss_url, title) VALUES (?, ?, ?)",
+            (_new_id(), rss_url, title),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT id FROM podcasts WHERE rss_url = ?", (rss_url,)
+        ) as cursor:
+            row = await cursor.fetchone()
+        return row[0]
+
+
 async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> str:
+    podcast_id = await get_or_create_podcast(rss_url, podcast_title)
     async with _connect() as db:
         sub_id = _new_id()
         await db.execute(
-            "INSERT INTO subscriptions (id, user_id, podcast_title, rss_url) VALUES (?, ?, ?, ?)",
-            (sub_id, user_id, podcast_title, rss_url),
+            "INSERT INTO subscriptions (id, user_id, podcast_id) VALUES (?, ?, ?)",
+            (sub_id, user_id, podcast_id),
         )
         await db.commit()
         return sub_id
@@ -117,7 +147,9 @@ async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> st
 async def get_subscriptions(user_id: str) -> list[Subscription]:
     async with _connect() as db:
         async with db.execute(
-            "SELECT id, podcast_title, rss_url, custom_prompt FROM subscriptions WHERE user_id = ? ORDER BY created_at",
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt "
+            "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
+            "WHERE s.user_id = ? ORDER BY s.created_at",
             (user_id,),
         ) as cursor:
             rows = await cursor.fetchall()
@@ -127,8 +159,8 @@ async def get_subscriptions(user_id: str) -> list[Subscription]:
 async def get_all_subscriptions() -> list[SubscriptionWithChat]:
     async with _connect() as db:
         async with db.execute(
-            "SELECT s.id, s.podcast_title, s.rss_url, s.custom_prompt, u.chat_id "
-            "FROM subscriptions s JOIN users u ON s.user_id = u.id"
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, u.chat_id "
+            "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id JOIN users u ON s.user_id = u.id"
         ) as cursor:
             rows = await cursor.fetchall()
     return [SubscriptionWithChat.model_validate(dict(r)) for r in rows]
@@ -137,7 +169,8 @@ async def get_all_subscriptions() -> list[SubscriptionWithChat]:
 async def remove_subscription(user_id: str, name_fragment: str) -> bool:
     async with _connect() as db:
         async with db.execute(
-            "SELECT id FROM subscriptions WHERE user_id = ? AND LOWER(podcast_title) LIKE LOWER(?)",
+            "SELECT s.id FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
+            "WHERE s.user_id = ? AND LOWER(p.title) LIKE LOWER(?)",
             (user_id, f"%{name_fragment}%"),
         ) as cursor:
             row = await cursor.fetchone()
@@ -157,24 +190,38 @@ async def remove_subscription_by_id(subscription_id: str) -> None:
 async def get_subscription_by_id(subscription_id: str) -> Subscription | None:
     async with _connect() as db:
         async with db.execute(
-            "SELECT id, podcast_title, rss_url, custom_prompt FROM subscriptions WHERE id = ?",
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt "
+            "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
+            "WHERE s.id = ?",
             (subscription_id,),
         ) as cursor:
             row = await cursor.fetchone()
             return Subscription.model_validate(dict(row)) if row else None
 
 
-async def is_episode_seen(subscription_id: str, guid: str) -> bool:
+async def get_episode_id(podcast_id: str, guid: str) -> str | None:
     async with _connect() as db:
         async with db.execute(
-            "SELECT 1 FROM episodes WHERE subscription_id = ? AND episode_guid = ?",
-            (subscription_id, guid),
+            "SELECT id FROM episodes WHERE podcast_id = ? AND episode_guid = ?",
+            (podcast_id, guid),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return row[0] if row else None
+
+
+async def is_episode_seen(user_id: str, podcast_id: str, guid: str) -> bool:
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT 1 FROM user_episodes ue JOIN episodes e ON ue.episode_id = e.id "
+            "WHERE ue.user_id = ? AND e.podcast_id = ? AND e.episode_guid = ?",
+            (user_id, podcast_id, guid),
         ) as cursor:
             return await cursor.fetchone() is not None
 
 
 async def mark_episode_seen(
-    subscription_id: str,
+    user_id: str,
+    podcast_id: str,
     guid: str,
     title: str | None = None,
     published_at: str | None = None,
@@ -183,39 +230,43 @@ async def mark_episode_seen(
 ) -> None:
     async with _connect() as db:
         await db.execute(
-            "INSERT INTO episodes (id, subscription_id, episode_guid, title, published_at, summary, transcript) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(subscription_id, episode_guid) DO UPDATE SET "
-            "  summary = COALESCE(excluded.summary, summary), "
-            "  transcript = COALESCE(excluded.transcript, transcript)",
-            (
-                _new_id(),
-                subscription_id,
-                guid,
-                title,
-                published_at,
-                summary,
-                transcript,
-            ),
+            "INSERT INTO episodes (id, podcast_id, episode_guid, title, published_at, transcript) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(podcast_id, episode_guid) DO UPDATE SET "
+            "  transcript = COALESCE(excluded.transcript, transcript), "
+            "  title = COALESCE(excluded.title, title), "
+            "  published_at = COALESCE(excluded.published_at, published_at)",
+            (_new_id(), podcast_id, guid, title, published_at, transcript),
+        )
+        async with db.execute(
+            "SELECT id FROM episodes WHERE podcast_id = ? AND episode_guid = ?",
+            (podcast_id, guid),
+        ) as cursor:
+            row = await cursor.fetchone()
+        episode_id = row[0]
+        await db.execute(
+            "INSERT INTO user_episodes (id, user_id, episode_id, summary) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(user_id, episode_id) DO UPDATE SET summary = COALESCE(excluded.summary, summary)",
+            (_new_id(), user_id, episode_id, summary),
         )
         await db.commit()
 
 
-async def get_episode_transcript(subscription_id: str, guid: str) -> str | None:
+async def get_episode_transcript(podcast_id: str, guid: str) -> str | None:
     async with _connect() as db:
         async with db.execute(
-            "SELECT transcript FROM episodes WHERE subscription_id=? AND episode_guid=?",
-            (subscription_id, guid),
+            "SELECT transcript FROM episodes WHERE podcast_id = ? AND episode_guid = ?",
+            (podcast_id, guid),
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else None
 
 
-async def get_episode_summary(subscription_id: str, guid: str) -> str | None:
+async def get_episode_summary(user_id: str, episode_id: str) -> str | None:
     async with _connect() as db:
         async with db.execute(
-            "SELECT summary FROM episodes WHERE subscription_id=? AND episode_guid=?",
-            (subscription_id, guid),
+            "SELECT summary FROM user_episodes WHERE user_id = ? AND episode_id = ?",
+            (user_id, episode_id),
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else None

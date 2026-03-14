@@ -184,13 +184,15 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(gettext(lang, "transcript_ep_data_expired"))
         return ConversationHandler.END
 
+    sub = await db.get_subscription_by_id(subscription_id)
+    user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     ep = ep_data[episode_index]
     guid = (
         ep["entry"].get("id")
         or ep["entry"].get("link")
         or ep["entry"].get("title", "")
     )
-    existing = await db.get_episode_transcript(subscription_id, guid)
+    existing = await db.get_episode_transcript(sub.podcast_id, guid)
 
     await query.edit_message_text(
         gettext(lang, "transcript_fetching", title=_html.escape(ep["title"])),
@@ -210,14 +212,16 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
             )
             published_at = ep["entry"].get("published")
             await db.mark_episode_seen(
-                subscription_id,
+                user_id,
+                sub.podcast_id,
                 guid,
                 title=ep["title"],
                 published_at=published_at,
                 transcript=transcript,
             )
 
-        summary = await db.get_episode_summary(subscription_id, guid)
+        episode_id = await db.get_episode_id(sub.podcast_id, guid)
+        summary = await db.get_episode_summary(user_id, episode_id) if episode_id else None
         published_at = ep["entry"].get("published")
         content = _build_markdown(ep["podcast_title"], ep["title"], published_at, summary, transcript)
         file_obj = io.BytesIO(content.encode("utf-8"))

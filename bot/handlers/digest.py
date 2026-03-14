@@ -202,11 +202,13 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text(gettext(lang, "ep_data_expired"))
         return ConversationHandler.END
 
+    sub = await db.get_subscription_by_id(subscription_id)
+    user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     ep = ep_data[episode_index]
     guid = (
         ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
     )
-    existing_transcript = await db.get_episode_transcript(subscription_id, guid)
+    existing_transcript = await db.get_episode_transcript(sub.podcast_id, guid)
 
     state_msg = (
         gettext(lang, "summarizing")
@@ -238,7 +240,8 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         published_at = ep["entry"].get("published")
         await db.mark_episode_seen(
-            subscription_id,
+            user_id,
+            sub.podcast_id,
             guid,
             title=ep["title"],
             published_at=published_at,

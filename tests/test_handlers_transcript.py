@@ -4,7 +4,7 @@ import pytest
 from telegram import Update
 from telegram.ext import ConversationHandler
 
-from bot.database import add_subscription, get_or_create_user, mark_episode_seen
+from bot.database import add_subscription, get_or_create_user, get_subscription_by_id, mark_episode_seen
 from bot.handlers.transcript import (
     TRANSCRIPT_CHOOSE_POD,
     TRANSCRIPT_CHOOSE_EP,
@@ -63,7 +63,8 @@ def test_build_markdown_without_summary():
 async def test_transcript_ep_selected_uses_cached_transcript(tmp_db):
     uid = await get_or_create_user(12345, 67890)
     sub_id = await add_subscription(uid, "My Pod", "http://example.com/feed.rss")
-    await mark_episode_seen(sub_id, "guid-abc", transcript="cached transcript text")
+    sub = await get_subscription_by_id(sub_id)
+    await mark_episode_seen(uid, sub.podcast_id, "guid-abc", transcript="cached transcript text")
 
     query = AsyncMock()
     query.data = f"transcript:ep:{sub_id}:0"

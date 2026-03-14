@@ -30,7 +30,8 @@ async def poll_all_feeds(app: Application) -> None:
     for sub in subscriptions:
         try:
             new_episodes = await fetch_new_episodes(
-                sub.id,
+                sub.user_id,
+                sub.podcast_id,
                 sub.rss_url,
                 db.is_episode_seen,
                 transcriber=transcriber,
@@ -53,7 +54,8 @@ async def poll_all_feeds(app: Application) -> None:
                 text = format_summary(sub.podcast_title, episode.title, summary)
                 await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
                 await db.mark_episode_seen(
-                    sub.id,
+                    sub.user_id,
+                    sub.podcast_id,
                     episode.guid,
                     title=episode.title,
                     published_at=episode.published,
@@ -63,7 +65,7 @@ async def poll_all_feeds(app: Application) -> None:
             except Exception as exc:
                 logger.error("Error processing episode %s: %s", episode.title, exc)
                 # Still mark as seen to avoid retrying broken episodes indefinitely
-                await db.mark_episode_seen(sub.id, episode.guid, title=episode.title)
+                await db.mark_episode_seen(sub.user_id, sub.podcast_id, episode.guid, title=episode.title)
 
             await asyncio.sleep(1)  # Telegram rate limit
 
