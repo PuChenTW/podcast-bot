@@ -3,8 +3,10 @@ import pytest
 from bot.database import (
     add_subscription,
     get_all_subscriptions,
+    get_episode_id,
     get_episode_summary,
     get_episode_transcript,
+    get_or_create_podcast,
     get_or_create_user,
     get_subscription_by_id,
     get_subscriptions,
@@ -35,6 +37,22 @@ class TestGetOrCreateUser:
         uid1 = await get_or_create_user(111, 999)
         uid2 = await get_or_create_user(222, 999)
         assert uid1 != uid2
+
+
+class TestGetOrCreatePodcast:
+    async def test_returns_id_string(self, tmp_db):
+        pid = await get_or_create_podcast("http://feed.com/rss", "My Show")
+        assert isinstance(pid, str) and len(pid) > 0
+
+    async def test_same_url_returns_same_id(self, tmp_db):
+        pid1 = await get_or_create_podcast("http://feed.com/rss", "My Show")
+        pid2 = await get_or_create_podcast("http://feed.com/rss", "My Show Updated")
+        assert pid1 == pid2  # rss_url is the unique key
+
+    async def test_different_urls_return_different_ids(self, tmp_db):
+        pid1 = await get_or_create_podcast("http://feed1.com/rss", "Show 1")
+        pid2 = await get_or_create_podcast("http://feed2.com/rss", "Show 2")
+        assert pid1 != pid2
 
 
 class TestAddAndGetSubscriptions:
@@ -128,28 +146,36 @@ class TestEpisodeSeen:
     async def test_false_before_marking(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        result = await is_episode_seen(sub_id, "guid123")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        result = await is_episode_seen(uid, podcast_id, "guid123")
         assert result is False
 
     async def test_true_after_marking(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        await mark_episode_seen(sub_id, "guid123")
-        result = await is_episode_seen(sub_id, "guid123")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        await mark_episode_seen(uid, podcast_id, "guid123")
+        result = await is_episode_seen(uid, podcast_id, "guid123")
         assert result is True
 
     async def test_mark_twice_no_exception(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        await mark_episode_seen(sub_id, "guid123", summary="first")
-        await mark_episode_seen(sub_id, "guid123", summary="second")  # ON CONFLICT DO UPDATE
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        await mark_episode_seen(uid, podcast_id, "guid123", summary="first")
+        await mark_episode_seen(uid, podcast_id, "guid123", summary="second")  # ON CONFLICT DO UPDATE
 
     async def test_second_call_with_summary_updates(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        await mark_episode_seen(sub_id, "guid123", summary=None)
-        await mark_episode_seen(sub_id, "guid123", summary="updated summary")
-        transcript = await get_episode_transcript(sub_id, "guid123")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        await mark_episode_seen(uid, podcast_id, "guid123", summary=None)
+        await mark_episode_seen(uid, podcast_id, "guid123", summary="updated summary")
+        transcript = await get_episode_transcript(podcast_id, "guid123")
         # summary updated; transcript still None
         assert transcript is None
 
@@ -158,14 +184,18 @@ class TestGetEpisodeTranscript:
     async def test_returns_stored_transcript(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        await mark_episode_seen(sub_id, "guid123", transcript="full transcript text")
-        result = await get_episode_transcript(sub_id, "guid123")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        await mark_episode_seen(uid, podcast_id, "guid123", transcript="full transcript text")
+        result = await get_episode_transcript(podcast_id, "guid123")
         assert result == "full transcript text"
 
     async def test_unknown_guid_returns_none(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        result = await get_episode_transcript(sub_id, "no-such-guid")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        result = await get_episode_transcript(podcast_id, "no-such-guid")
         assert result is None
 
 
@@ -173,21 +203,30 @@ class TestGetEpisodeSummary:
     async def test_returns_stored_summary(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        await mark_episode_seen(sub_id, "guid123", summary="great episode")
-        result = await get_episode_summary(sub_id, "guid123")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        await mark_episode_seen(uid, podcast_id, "guid123", summary="great episode")
+        episode_id = await get_episode_id(podcast_id, "guid123")
+        result = await get_episode_summary(uid, episode_id)
         assert result == "great episode"
 
     async def test_unknown_guid_returns_none(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        result = await get_episode_summary(sub_id, "no-such-guid")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        episode_id = await get_episode_id(podcast_id, "no-such-guid")
+        result = await get_episode_summary(uid, episode_id)
         assert result is None
 
     async def test_no_summary_returns_none(self, tmp_db):
         uid = await _make_user()
         sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
-        await mark_episode_seen(sub_id, "guid123", transcript="some transcript")
-        result = await get_episode_summary(sub_id, "guid123")
+        sub = await get_subscription_by_id(sub_id)
+        podcast_id = sub.podcast_id
+        await mark_episode_seen(uid, podcast_id, "guid123", transcript="some transcript")
+        episode_id = await get_episode_id(podcast_id, "guid123")
+        result = await get_episode_summary(uid, episode_id)
         assert result is None
 
 
