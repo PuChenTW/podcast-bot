@@ -1,54 +1,16 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+import logging
 
 import aiosqlite
 from pydantic import BaseModel
 from ulid import ULID
 
+import migrate
+
+logger = logging.getLogger(__name__)
+
 DB_PATH = "podcast_bot.db"
-
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    telegram_user_id INTEGER UNIQUE NOT NULL,
-    chat_id INTEGER NOT NULL,
-    language TEXT DEFAULT 'zh-tw',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS podcasts (
-    id TEXT PRIMARY KEY,
-    rss_url TEXT UNIQUE NOT NULL,
-    title TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS subscriptions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT REFERENCES users(id),
-    podcast_id TEXT REFERENCES podcasts(id),
-    custom_prompt TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS episodes (
-    id TEXT PRIMARY KEY,
-    podcast_id TEXT REFERENCES podcasts(id),
-    episode_guid TEXT NOT NULL,
-    title TEXT,
-    published_at TIMESTAMP,
-    transcript TEXT,
-    UNIQUE(podcast_id, episode_guid)
-);
-
-CREATE TABLE IF NOT EXISTS user_episodes (
-    id TEXT PRIMARY KEY,
-    user_id TEXT REFERENCES users(id),
-    episode_id TEXT REFERENCES episodes(id),
-    summary TEXT,
-    notified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, episode_id)
-);
-"""
 
 
 class Subscription(BaseModel):
@@ -77,8 +39,22 @@ def _new_id() -> str:
 
 async def init_db() -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.executescript(_SCHEMA)
-        await db.commit()
+        await migrate.ensure_migrations_table(db)
+        applied = await migrate.get_applied_versions(db)
+        pending = [
+            (v, up) for v, up, _ in migrate.discover_migrations(migrate.DEFAULT_MIGRATIONS_DIR)
+            if v not in applied
+        ]
+        for version, up_path in pending:
+            logger.info("Applying migration %d: %s", version, up_path.name)
+            await db.executescript(up_path.read_text())
+            await db.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+                (version, datetime.now(timezone.utc).isoformat()),
+            )
+            await db.commit()
+        if pending:
+            logger.info("Applied %d migration(s).", len(pending))
 
 
 async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
