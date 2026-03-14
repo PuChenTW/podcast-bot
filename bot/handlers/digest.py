@@ -12,13 +12,14 @@ from telegram.ext import (
 
 from bot import database as db
 from bot.config import settings
-from bot.feed import fetch_feed_entries, get_episode_content
+from bot.feed import fetch_feed_entries
 from bot.formatting import format_summary, send_html
 from bot.handlers.callbacks import (
     DigestEpCallback,
     DigestNavCallback,
     DigestPodCallback,
 )
+from bot.handlers.episode_picker import build_episode_keyboard, get_or_fetch_transcript
 from bot.i18n import gettext
 from bot.summarizer import correct_transcript, summarize_episode
 
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 DIGEST_CHOOSE_POD = 0
 DIGEST_CHOOSE_EP = 1
-_PAGE_SIZE = 5
 
 
 async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -63,56 +63,6 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return DIGEST_CHOOSE_POD
 
 
-def _build_episode_keyboard(
-    entries: list,
-    offset: int,
-    subscription_id: str,
-    lang: str,
-) -> InlineKeyboardMarkup:
-    page = entries[offset : offset + _PAGE_SIZE]
-    buttons = [
-        [
-            InlineKeyboardButton(
-                (ep["title"])[:60],
-                callback_data=DigestEpCallback(
-                    subscription_id=subscription_id, index=offset + i
-                ).serialize(),
-            )
-        ]
-        for i, ep in enumerate(page)
-    ]
-    nav_row = []
-    if offset > 0:
-        nav_row.append(
-            InlineKeyboardButton(
-                gettext(lang, "nav_prev"),
-                callback_data=DigestNavCallback(
-                    subscription_id=subscription_id, offset=offset - _PAGE_SIZE
-                ).serialize(),
-            )
-        )
-    if offset + _PAGE_SIZE < len(entries):
-        nav_row.append(
-            InlineKeyboardButton(
-                gettext(lang, "nav_next"),
-                callback_data=DigestNavCallback(
-                    subscription_id=subscription_id, offset=offset + _PAGE_SIZE
-                ).serialize(),
-            )
-        )
-    if nav_row:
-        buttons.append(nav_row)
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                gettext(lang, "cancel_btn"),
-                callback_data=DigestEpCallback(subscription_id=None).serialize(),
-            )
-        ]
-    )
-    return InlineKeyboardMarkup(buttons)
-
-
 async def digest_pod_selected(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -147,8 +97,9 @@ async def digest_pod_selected(
         for e in entries
     ]
     context.user_data["digest_offset"] = 0
-    keyboard = _build_episode_keyboard(
-        context.user_data["digest_eps"], 0, subscription_id, lang
+    keyboard = build_episode_keyboard(
+        context.user_data["digest_eps"], 0, subscription_id, lang,
+        DigestEpCallback, DigestNavCallback,
     )
     await query.edit_message_text(
         gettext(
@@ -174,7 +125,9 @@ async def digest_nav(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return ConversationHandler.END
 
     context.user_data["digest_offset"] = cb.offset
-    keyboard = _build_episode_keyboard(ep_data, cb.offset, cb.subscription_id, lang)
+    keyboard = build_episode_keyboard(
+        ep_data, cb.offset, cb.subscription_id, lang, DigestEpCallback, DigestNavCallback
+    )
     await query.edit_message_reply_markup(reply_markup=keyboard)
     return DIGEST_CHOOSE_EP
 
@@ -207,30 +160,19 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     guid = (
         ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
     )
-    existing_transcript = await db.get_episode_transcript(sub.podcast_id, guid)
-
-    state_msg = (
-        gettext(lang, "summarizing")
-        if existing_transcript
-        else gettext(lang, "transcribing")
-    )
+    has_transcript = bool(await db.get_episode_transcript(sub.podcast_id, guid))
+    state_msg = gettext(lang, "summarizing") if has_transcript else gettext(lang, "transcribing")
     await query.edit_message_text(
         f"{state_msg} <i>{_html.escape(ep['title'])}</i>…",
         parse_mode="HTML",
     )
 
     try:
-        if existing_transcript:
-            content = existing_transcript
-        else:
-            corrector = partial(correct_transcript, settings.gemini_model)
-            transcriber = context.bot_data["transcriber"]
-            content = await get_episode_content(
-                ep["entry"],
-                transcriber,
-                podcast_title=ep["podcast_title"],
-                corrector=corrector,
-            )
+        corrector = partial(correct_transcript, settings.gemini_model)
+        transcriber = context.bot_data["transcriber"]
+        content = await get_or_fetch_transcript(
+            sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector
+        )
         summary = await summarize_episode(
             ep["title"],
             content,

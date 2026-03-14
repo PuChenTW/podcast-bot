@@ -94,7 +94,7 @@ async def test_transcript_ep_selected_uses_cached_transcript(tmp_db):
 
     with (
         patch("bot.handlers.transcript.db.get_user_language", return_value="en"),
-        patch("bot.handlers.transcript.get_episode_content") as mock_fetch,
+        patch("bot.handlers.episode_picker.get_episode_content") as mock_fetch,
     ):
         result = await transcript_ep_selected(update, context)
 
@@ -135,7 +135,7 @@ async def test_transcript_ep_selected_fetches_when_missing(tmp_db):
     with (
         patch("bot.handlers.transcript.db.get_user_language", return_value="en"),
         patch(
-            "bot.handlers.transcript.get_episode_content",
+            "bot.handlers.episode_picker.get_episode_content",
             new_callable=AsyncMock,
             return_value="fresh transcript",
         ) as mock_fetch,

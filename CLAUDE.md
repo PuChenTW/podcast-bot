@@ -4,7 +4,7 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 
 - **Subscribes** to podcast RSS feeds per user
 - **Auto-polls** all subscriptions every 6 hours for new episodes
-- **Transcribes** episodes via 3-strategy waterfall: transcript URL → Whisper audio transcription → description fallback
+- **Transcribes** episodes via 3-strategy waterfall: transcript URL → audio transcription (Whisper or Groq w/ fallback) → description fallback
 - **Summarizes** with Google Gemini (Pydantic AI): returns plain Markdown `str`; supports per-podcast `custom_prompt`
 - **On-demand digest**: `/digest` lets users pick a podcast → episode for immediate transcription + summary
 - **Custom prompts**: `/setprompt` lets users set per-podcast summarization style (manual input, AI auto-generate, or iterative refinement via natural language conversation)
@@ -22,6 +22,8 @@ uv sync --group dev          # include pytest + pytest-asyncio
 uv run python main.py        # run the bot (or: make run)
 uv add <package>             # add a dependency
 make test                    # run pytest (or: uv run pytest tests/ -v)
+make lint                    # run ruff linter
+make format                  # run ruff formatter
 make migrate-up              # apply all pending DB migrations
 make migrate-down version=0  # roll back to target version
 make migrate-status          # show applied/pending migration state
@@ -49,7 +51,8 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 |------|------|
 | `main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
 | `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
-| `bot/feed.py` | RSS parsing, transcript/audio fetching, Whisper transcription |
+| `bot/feed.py` | RSS parsing, transcript/audio fetching; delegates transcription via injected `Transcriber` |
+| `bot/transcribers/` | `Transcriber` protocol; `WhisperTranscriber` (local faster-whisper); `GroqTranscriber` (Groq API, auto-splits >20MB via ffmpeg); `TranscriberPipeline` fallback orchestrator |
 | `bot/summarizer.py` | Pydantic AI (Gemini) agent returning `str` (plain Markdown) |
 | `bot/scheduler.py` | `AsyncScheduler` polls subscriptions every `POLL_INTERVAL_SECONDS`; marks episodes seen even on error |
 | `bot/handlers/` | Telegram command handlers split into `subscribe.py`, `digest.py`, `setprompt.py`, `language.py`; `/digest` is two-step inline-keyboard: pick podcast → pick episode |
@@ -69,7 +72,9 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `TELEGRAM_CHAT_ID` | required | Auto-summary destination |
 | `GEMINI_API_KEY` | required | Google Gemini key |
 | `GEMINI_MODEL` | `gemini-flash-lite-latest` | Summarization model |
+| `TRANSCRIBER` | `whisper` | Transcription backend: `whisper` or `groq` |
 | `WHISPER_MODEL` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
+| `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
 | `ADMIN_USER_ID` | required | Telegram user ID for `/reload` admin command |
 
@@ -96,11 +101,13 @@ user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified
 
 **Content limits:** transcripts capped at 500KB / 12K chars; audio hard cap 200MB.
 
-**Groq transcriber:** `MAX_GROQ_BYTES = 20_000_000` (not 25MB) — multipart HTTP overhead causes 413 at the nominal limit. Files exceeding this are split via ffmpeg before sending; chunks are transcribed in parallel with `asyncio.gather`.
+**Groq transcriber** (`bot/transcribers/groq.py`): `MAX_GROQ_BYTES = 20_000_000` (not 25MB) — multipart HTTP overhead causes 413 at the nominal limit. Files exceeding this are split via ffmpeg before sending; chunks are transcribed in parallel with `asyncio.gather`.
 
 **ffmpeg audio splitting:** Chunk temp files must use a real format extension (`.mp3`, `.ogg`, etc.), not `.audio` — ffmpeg cannot mux without a known container. Detect format via `ffprobe -show_entries format=format_name` and map to extension.
 
-**`faster_whisper` is imported lazily** inside `_run_transcription()` to avoid slow module-level load.
+**`faster_whisper` is imported lazily** inside `WhisperTranscriber._run()` (`bot/transcribers/whisper.py`) to avoid slow module-level load.
+
+**TranscriberPipeline fallback:** When `TRANSCRIBER=groq`, `_build_transcriber()` in `main.py` returns `TranscriberPipeline([GroqTranscriber, WhisperTranscriber])` — Groq is tried first; on failure or `None` result it falls back to local Whisper automatically.
 
 **Error recovery:** scheduler marks episodes seen even on failure — prevents infinite retries.
 

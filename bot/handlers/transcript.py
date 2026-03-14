@@ -4,15 +4,21 @@ import logging
 import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
-from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes, ConversationHandler
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    ConversationHandler,
+)
 
 from bot import database as db
-from bot.feed import fetch_feed_entries, get_episode_content
+from bot.feed import fetch_feed_entries
 from bot.handlers.callbacks import (
     TranscriptEpCallback,
     TranscriptNavCallback,
     TranscriptPodCallback,
 )
+from bot.handlers.episode_picker import build_episode_keyboard, get_or_fetch_transcript
 from bot.i18n import gettext
 
 logger = logging.getLogger(__name__)
@@ -81,59 +87,6 @@ async def cmd_transcript(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return TRANSCRIPT_CHOOSE_POD
 
 
-_PAGE_SIZE = 5
-
-
-def _build_episode_keyboard(
-    entries: list,
-    offset: int,
-    subscription_id: str,
-    lang: str,
-) -> InlineKeyboardMarkup:
-    page = entries[offset : offset + _PAGE_SIZE]
-    buttons = [
-        [
-            InlineKeyboardButton(
-                ep["title"][:60],
-                callback_data=TranscriptEpCallback(
-                    subscription_id=subscription_id, index=offset + i
-                ).serialize(),
-            )
-        ]
-        for i, ep in enumerate(page)
-    ]
-    nav_row = []
-    if offset > 0:
-        nav_row.append(
-            InlineKeyboardButton(
-                gettext(lang, "nav_prev"),
-                callback_data=TranscriptNavCallback(
-                    subscription_id=subscription_id, offset=offset - _PAGE_SIZE
-                ).serialize(),
-            )
-        )
-    if offset + _PAGE_SIZE < len(entries):
-        nav_row.append(
-            InlineKeyboardButton(
-                gettext(lang, "nav_next"),
-                callback_data=TranscriptNavCallback(
-                    subscription_id=subscription_id, offset=offset + _PAGE_SIZE
-                ).serialize(),
-            )
-        )
-    if nav_row:
-        buttons.append(nav_row)
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                gettext(lang, "cancel_btn"),
-                callback_data=TranscriptEpCallback(subscription_id=None).serialize(),
-            )
-        ]
-    )
-    return InlineKeyboardMarkup(buttons)
-
-
 async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -166,8 +119,9 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
         for e in entries
     ]
     context.user_data["transcript_offset"] = 0
-    keyboard = _build_episode_keyboard(
-        context.user_data["transcript_eps"], 0, subscription_id, lang
+    keyboard = build_episode_keyboard(
+        context.user_data["transcript_eps"], 0, subscription_id, lang,
+        TranscriptEpCallback, TranscriptNavCallback,
     )
     await query.edit_message_text(
         gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
@@ -191,7 +145,9 @@ async def transcript_nav(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return ConversationHandler.END
 
     context.user_data["transcript_offset"] = cb.offset
-    keyboard = _build_episode_keyboard(ep_data, cb.offset, cb.subscription_id, lang)
+    keyboard = build_episode_keyboard(
+        ep_data, cb.offset, cb.subscription_id, lang, TranscriptEpCallback, TranscriptNavCallback
+    )
     await query.edit_message_reply_markup(reply_markup=keyboard)
     return TRANSCRIPT_CHOOSE_EP
 
@@ -222,7 +178,7 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     ep = ep_data[episode_index]
     guid = ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
-    existing = await db.get_episode_transcript(sub.podcast_id, guid)
+    already_cached = bool(await db.get_episode_transcript(sub.podcast_id, guid))
 
     await query.edit_message_text(
         gettext(lang, "transcript_fetching", title=_html.escape(ep["title"])),
@@ -230,16 +186,11 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
     )
 
     try:
-        if existing:
-            transcript = existing
-        else:
-            transcriber = context.bot_data["transcriber"]
-            transcript = await get_episode_content(
-                ep["entry"],
-                transcriber,
-                podcast_title=ep["podcast_title"],
-                corrector=None,
-            )
+        transcriber = context.bot_data["transcriber"]
+        transcript = await get_or_fetch_transcript(
+            sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector=None
+        )
+        if not already_cached:
             published_at = ep["entry"].get("published")
             await db.mark_episode_seen(
                 user_id,
