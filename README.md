@@ -51,7 +51,6 @@ All configuration is via `.env`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TELEGRAM_BOT_TOKEN` | required | Bot API token from @BotFather |
-| `TELEGRAM_CHAT_ID` | required | Chat ID to send auto-summaries to |
 | `GEMINI_API_KEY` | required | Google Gemini API key |
 | `GEMINI_MODEL` | `gemini-flash-lite-latest` | Gemini model for summarization |
 | `TRANSCRIBER` | `whisper` | Transcription backend: `whisper` (local) or `groq` (API) |

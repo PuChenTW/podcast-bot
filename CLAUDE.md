@@ -69,7 +69,6 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | Variable | Default | Notes |
 |----------|---------|-------|
 | `TELEGRAM_BOT_TOKEN` | required | Bot API token |
-| `TELEGRAM_CHAT_ID` | required | Auto-summary destination |
 | `GEMINI_API_KEY` | required | Google Gemini key |
 | `GEMINI_MODEL` | `gemini-flash-lite-latest` | Summarization model |
 | `TRANSCRIBER` | `whisper` | Transcription backend: `whisper` or `groq` |
