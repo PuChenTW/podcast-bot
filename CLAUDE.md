@@ -94,6 +94,10 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
 
 **Content limits:** transcripts capped at 500KB / 12K chars; audio hard cap 200MB.
 
+**Groq transcriber:** `MAX_GROQ_BYTES = 20_000_000` (not 25MB) — multipart HTTP overhead causes 413 at the nominal limit. Files exceeding this are split via ffmpeg before sending; chunks are transcribed in parallel with `asyncio.gather`.
+
+**ffmpeg audio splitting:** Chunk temp files must use a real format extension (`.mp3`, `.ogg`, etc.), not `.audio` — ffmpeg cannot mux without a known container. Detect format via `ffprobe -show_entries format=format_name` and map to extension.
+
 **`faster_whisper` is imported lazily** inside `_run_transcription()` to avoid slow module-level load.
 
 **Error recovery:** scheduler marks episodes seen even on failure — prevents infinite retries.

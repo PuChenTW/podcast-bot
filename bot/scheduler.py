@@ -5,7 +5,7 @@ from functools import partial
 
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from telegram import Bot
+from telegram.ext import Application
 
 from bot import database as db
 from bot.config import settings
@@ -18,8 +18,10 @@ logger = logging.getLogger(__name__)
 _scheduler: AsyncScheduler | None = None
 
 
-async def poll_all_feeds(bot: Bot) -> None:
+async def poll_all_feeds(app: Application) -> None:
     logger.info("Polling all feeds...")
+    bot = app.bot
+    transcriber = app.bot_data["transcriber"]
     subscriptions = await db.get_all_subscriptions()
 
     # Pre-bind the AI model to the corrector callback
@@ -31,7 +33,7 @@ async def poll_all_feeds(bot: Bot) -> None:
                 sub.id,
                 sub.rss_url,
                 db.is_episode_seen,
-                whisper_model=settings.whisper_model,
+                transcriber=transcriber,
                 podcast_title=sub.podcast_title,
                 corrector=corrector,
             )
@@ -66,14 +68,14 @@ async def poll_all_feeds(bot: Bot) -> None:
             await asyncio.sleep(1)  # Telegram rate limit
 
 
-async def start_scheduler(bot: Bot) -> None:
+async def start_scheduler(app: Application) -> None:
     global _scheduler
     _scheduler = AsyncScheduler()
     await _scheduler.__aenter__()
     await _scheduler.add_schedule(
         poll_all_feeds,
         IntervalTrigger(seconds=settings.poll_interval_seconds),
-        kwargs={"bot": bot},
+        kwargs={"app": app},
         id="poll_feeds",
     )
     await _scheduler.start_in_background()

@@ -8,7 +8,6 @@ from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandl
 
 from bot import database as db
 from bot.handlers.callbacks import TranscriptEpCallback, TranscriptNavCallback, TranscriptPodCallback
-from bot.config import settings
 from bot.feed import fetch_feed_entries, get_episode_content
 from bot.i18n import gettext
 
@@ -202,9 +201,10 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
         if existing:
             transcript = existing
         else:
+            transcriber = context.bot_data["transcriber"]
             transcript = await get_episode_content(
                 ep["entry"],
-                settings.whisper_model,
+                transcriber,
                 podcast_title=ep["podcast_title"],
                 corrector=None,
             )

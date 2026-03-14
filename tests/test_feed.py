@@ -142,8 +142,10 @@ class TestGetEpisodeContent:
             "summary": "desc",
         }
         corrector = AsyncMock(return_value="corrected")
+        transcriber = AsyncMock()
+        transcriber.transcribe = AsyncMock(return_value=None)
         with patch("bot.feed._fetch_transcript_url", AsyncMock(return_value="raw transcript")):
-            result = await get_episode_content(entry, corrector=corrector)
+            result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected"
         corrector.assert_called_once_with("raw transcript", "", "Ep 1", "desc")
 
@@ -154,24 +156,27 @@ class TestGetEpisodeContent:
             "summary": "desc",
         }
         corrector = AsyncMock(return_value="corrected audio")
+        transcriber = AsyncMock()
+        transcriber.transcribe = AsyncMock(return_value="transcribed")
         with (
             patch("bot.feed._fetch_transcript_url", AsyncMock(return_value=None)),
             patch("bot.feed._download_audio", AsyncMock(return_value="/tmp/audio.mp3")),
-            patch("bot.feed._transcribe_audio", AsyncMock(return_value="transcribed")),
             patch("bot.feed.os.unlink"),
         ):
-            result = await get_episode_content(entry, corrector=corrector)
+            result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected audio"
         corrector.assert_called_once_with("transcribed", "", "Ep 2", "desc")
 
     async def test_path3_description_fallback(self):
         entry = {"title": "Ep 3", "summary": "fallback description"}
         corrector = AsyncMock(return_value="corrected fallback")
+        transcriber = AsyncMock()
+        transcriber.transcribe = AsyncMock(return_value=None)
         with (
             patch("bot.feed._fetch_transcript_url", AsyncMock(return_value=None)),
             patch("bot.feed._download_audio", AsyncMock(return_value=None)),
         ):
-            result = await get_episode_content(entry, corrector=corrector)
+            result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected fallback"
         corrector.assert_called_once_with("fallback description", "", "Ep 3", "fallback description")
 
@@ -182,8 +187,10 @@ class TestGetEpisodeContent:
             "title": "Ep",
             "summary": "",
         }
+        transcriber = AsyncMock()
+        transcriber.transcribe = AsyncMock(return_value=None)
         with patch("bot.feed._fetch_transcript_url", AsyncMock(return_value=long_text)):
-            result = await get_episode_content(entry)
+            result = await get_episode_content(entry, transcriber)
         assert len(result) <= MAX_TRANSCRIPT_CHARS
 
 

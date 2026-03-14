@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import math
 import os
 import re
+import subprocess
 import tempfile
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Protocol, runtime_checkable
 
 import feedparser
 import httpx
@@ -24,6 +26,11 @@ MAX_AUDIO_BYTES = 200_000_000  # 200 MB hard cap
 
 # Type alias for the transcript corrector callable.
 Corrector = Callable[[str, str, str, str, str], Awaitable[str]]
+
+
+@runtime_checkable
+class Transcriber(Protocol):
+    async def transcribe(self, audio_path: str) -> str | None: ...
 
 
 @dataclass
@@ -120,20 +127,127 @@ async def _download_audio(url: str) -> str | None:
         return None
 
 
-def _run_transcription(path: str, model_size: str) -> str:
-    from faster_whisper import WhisperModel
-
-    model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, _ = model.transcribe(path, beam_size=5, vad_filter=True)
-    return " ".join(seg.text.strip() for seg in segments)
-
-
-async def _transcribe_audio(path: str, model_size: str) -> str | None:
+def _split_audio(path: str, max_bytes: int) -> list[str]:
+    """Split audio file into chunks each under max_bytes. Returns list of temp file paths."""
     try:
-        return await asyncio.to_thread(_run_transcription, path, model_size)
+        file_size = os.path.getsize(path)
+        # Get duration via ffprobe
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", path,
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            logger.warning("ffprobe failed: %s", result.stderr)
+            return [path]
+        total_duration = float(result.stdout.strip())
+        n_chunks = math.ceil(file_size / max_bytes)
+        chunk_duration = total_duration / n_chunks
+# Detect format from ffprobe so ffmpeg can mux correctly
+        fmt_result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=format_name",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=30,
+        )
+        fmt = fmt_result.stdout.strip().split(",")[0] if fmt_result.returncode == 0 else ""
+        FORMAT_TO_EXT = {"mp3": ".mp3", "ogg": ".ogg", "flac": ".flac", "wav": ".wav", "aac": ".aac", "m4a": ".m4a"}
+        suffix = FORMAT_TO_EXT.get(fmt, ".mp3")
+        chunk_paths: list[str] = []
+        for i in range(n_chunks):
+            offset = i * chunk_duration
+            tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+            tmp.close()
+            r = subprocess.run(
+                [
+                    "ffmpeg", "-y", "-i", path,
+                    "-ss", str(offset), "-t", str(chunk_duration),
+                    "-c", "copy", tmp.name,
+                ],
+                capture_output=True, timeout=120,
+            )
+            if r.returncode != 0:
+                logger.warning("ffmpeg chunk %d failed: %s", i, r.stderr)
+                for p in chunk_paths:
+                    try:
+                        os.unlink(p)
+                    except OSError:
+                        pass
+                return [path]
+            chunk_paths.append(tmp.name)
+        return chunk_paths
     except Exception as exc:
-        logger.warning("Transcription failed for %s: %s", path, exc)
-        return None
+        logger.warning("_split_audio failed: %s", exc, exc_info=True)
+        return [path]
+
+
+class WhisperTranscriber:
+    def __init__(self, model_size: str) -> None:
+        self._model_size = model_size
+
+    async def transcribe(self, audio_path: str) -> str | None:
+        try:
+            return await asyncio.to_thread(self._run, audio_path)
+        except Exception as exc:
+            logger.warning("Transcription failed for %s: %s", audio_path, exc)
+            return None
+
+    def _run(self, path: str) -> str:
+        from faster_whisper import WhisperModel
+
+        model = WhisperModel(self._model_size, device="cpu", compute_type="int8")
+        segments, _ = model.transcribe(path, beam_size=5, vad_filter=True)
+        return " ".join(seg.text.strip() for seg in segments)
+
+
+MAX_GROQ_BYTES = 20_000_000  # Groq limit is 25MB but multipart overhead requires headroom
+
+
+class GroqTranscriber:
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            from groq import AsyncGroq
+            self._client = AsyncGroq(api_key=self._api_key)
+        return self._client
+
+    async def transcribe(self, audio_path: str) -> str | None:
+        try:
+            size = os.path.getsize(audio_path)
+            if size > MAX_GROQ_BYTES:
+                chunk_paths = await asyncio.to_thread(_split_audio, audio_path, MAX_GROQ_BYTES)
+            else:
+                chunk_paths = [audio_path]
+
+            client = self._get_client()
+
+            async def _transcribe_chunk(chunk_path: str) -> str:
+                with open(chunk_path, "rb") as f:
+                    result = await client.audio.transcriptions.create(
+                        model="whisper-large-v3",
+                        file=f,
+                    )
+                return result.text
+
+            try:
+                parts = await asyncio.gather(*[_transcribe_chunk(p) for p in chunk_paths])
+            finally:
+                # Clean up chunks (but not the original file — caller owns that)
+                for chunk_path in chunk_paths:
+                    if chunk_path != audio_path:
+                        try:
+                            os.unlink(chunk_path)
+                        except OSError:
+                            pass
+
+            return " ".join(parts) if parts else None
+        except Exception as exc:
+            logger.warning("Groq transcription failed for %s: %s", audio_path, exc)
+            return None
 
 
 def _split_chunks(text: str, max_chars: int) -> list[str]:
@@ -163,7 +277,7 @@ def _split_chunks(text: str, max_chars: int) -> list[str]:
 
 async def get_episode_content(
     entry: dict,
-    whisper_model: str = "base",
+    transcriber: Transcriber,
     podcast_title: str = "",
     corrector: Corrector | None = None,
 ) -> str:
@@ -192,7 +306,7 @@ async def get_episode_content(
         path = await _download_audio(audio_url)
         if path:
             try:
-                text = await _transcribe_audio(path, whisper_model)
+                text = await transcriber.transcribe(path)
                 if text:
                     return await _correct(text[:MAX_TRANSCRIPT_CHARS])
             finally:
@@ -255,13 +369,13 @@ def parse_podcast_title(parsed: feedparser.FeedParserDict) -> str:
 
 async def _parse_entry(
     entry: dict,
-    whisper_model: str = "base",
+    transcriber: Transcriber,
     podcast_title: str = "",
     corrector: Corrector | None = None,
 ) -> Episode:
     guid = entry.get("id") or entry.get("link") or entry.get("title", "")
     content = await get_episode_content(
-        entry, whisper_model, podcast_title, corrector
+        entry, transcriber, podcast_title, corrector
     )
     return Episode(
         guid=guid,
@@ -274,19 +388,19 @@ async def _parse_entry(
 async def fetch_feed_episodes(
     rss_url: str,
     limit: int = 5,
-    whisper_model: str = "base",
+    transcriber: Transcriber = None,
     corrector: Corrector | None = None,
 ) -> list[Episode]:
     """Return up to `limit` most-recent episodes from the feed."""
     feed = await asyncio.to_thread(feedparser.parse, rss_url)
-    return [await _parse_entry(e, whisper_model, corrector=corrector) for e in feed.entries[:limit]]
+    return [await _parse_entry(e, transcriber, corrector=corrector) for e in feed.entries[:limit]]
 
 
 async def fetch_new_episodes(
     subscription_id: str,
     rss_url: str,
     is_seen_fn,
-    whisper_model: str = "base",
+    transcriber: Transcriber = None,
     podcast_title: str = "",
     corrector: Corrector | None = None,
 ) -> list[Episode]:
@@ -302,7 +416,7 @@ async def fetch_new_episodes(
         if await is_seen_fn(subscription_id, guid):
             continue
 
-        ep = await _parse_entry(entry, whisper_model, podcast_title, corrector)
+        ep = await _parse_entry(entry, transcriber, podcast_title, corrector)
         new_episodes.append(ep)
 
     return new_episodes

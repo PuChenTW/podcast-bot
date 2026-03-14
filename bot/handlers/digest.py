@@ -223,9 +223,10 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
             content = existing_transcript
         else:
             corrector = partial(correct_transcript, settings.gemini_model)
+            transcriber = context.bot_data["transcriber"]
             content = await get_episode_content(
                 ep["entry"],
-                settings.whisper_model,
+                transcriber,
                 podcast_title=ep["podcast_title"],
                 corrector=corrector,
             )

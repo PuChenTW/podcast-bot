@@ -1,9 +1,9 @@
-import pytest
-
 from bot.feed import CORRECTION_CHUNK_CHARS, _split_chunks, get_episode_content
+from unittest.mock import AsyncMock as _AsyncMock
 
 
 # --- _split_chunks ---
+
 
 def test_split_chunks_short():
     text = "hello world"
@@ -44,6 +44,7 @@ def test_split_chunks_exact_boundary():
 
 # --- _correct() inside get_episode_content ---
 
+
 async def test_correct_short_no_chunking():
     calls = []
 
@@ -51,10 +52,12 @@ async def test_correct_short_no_chunking():
         calls.append(text)
         return text + "[ok]"
 
+    transcriber = _AsyncMock()
+    transcriber.transcribe = _AsyncMock(return_value=None)
     entry = {"title": "Ep1", "summary": "desc"}
     result = await get_episode_content(
         entry,
-        whisper_model="base",
+        transcriber,
         podcast_title="Pod",
         corrector=mock_corrector,
     )
@@ -75,13 +78,15 @@ async def test_correct_long_chunked():
     long_text = "\n\n".join([para] * 4)  # ~24k chars across 4 paragraphs
 
     # Patch get_episode_content to exercise chunking via the description fallback
+    transcriber = _AsyncMock()
+    transcriber.transcribe = _AsyncMock(return_value=None)
     entry = {
         "title": "Long Episode",
         "summary": long_text,
     }
     await get_episode_content(
         entry,
-        whisper_model="base",
+        transcriber,
         podcast_title="Pod",
         corrector=mock_corrector,
     )

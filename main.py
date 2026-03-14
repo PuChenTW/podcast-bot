@@ -8,6 +8,7 @@ from telegram.ext import (
 
 from bot.config import settings
 from bot.database import init_db
+from bot.feed import GroqTranscriber, Transcriber, WhisperTranscriber
 from bot.handlers import (
     cmd_list,
     cmd_reload,
@@ -30,9 +31,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+def _build_transcriber(s) -> Transcriber:
+    if s.transcriber_backend == "groq":
+        return GroqTranscriber(s.groq_api_key)
+    return WhisperTranscriber(s.whisper_model)
+
+
 async def post_init(app: Application) -> None:
     await init_db()
-    await start_scheduler(app.bot)
+    app.bot_data["transcriber"] = _build_transcriber(settings)
+    await start_scheduler(app)
     await app.bot.set_my_commands([
         ("start", "Show available commands"),
         ("subscribe", "Subscribe to a podcast RSS feed"),

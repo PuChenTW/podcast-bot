@@ -6,7 +6,7 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 
 - Subscribe to podcast RSS feeds per user (supports Apple Podcasts URLs via iTunes Lookup API)
 - Auto-polls all subscriptions every 6 hours for new episodes
-- Transcribes episodes via 3-strategy waterfall: transcript URL → Whisper audio → description fallback
+- Transcribes episodes via 3-strategy waterfall: transcript URL → audio transcription (Whisper or Groq) → description fallback
 - Summarizes with Google Gemini; supports 4 per-podcast prompt modes: manual, auto-generate, refine existing, clear
 - On-demand digest: paginated episode picker (5/page, ◀/▶ nav) → immediate summary
 - Transcript download: same paginated flow, outputs a `.md` file; transcript cached in DB for instant repeat
@@ -54,7 +54,9 @@ All configuration is via `.env`:
 | `TELEGRAM_CHAT_ID` | required | Chat ID to send auto-summaries to |
 | `GEMINI_API_KEY` | required | Google Gemini API key |
 | `GEMINI_MODEL` | `gemini-flash-lite-latest` | Gemini model for summarization |
-| `WHISPER_MODEL` | `base` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large-v3` |
+| `TRANSCRIBER` | `whisper` | Transcription backend: `whisper` (local) or `groq` (API) |
+| `WHISPER_MODEL` | `base` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large-v3` (only when `TRANSCRIBER=whisper`) |
+| `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |
 | `POLL_INTERVAL_SECONDS` | `21600` | How often to poll for new episodes (default: 6 hours) |
 | `ADMIN_USER_ID` | required | Your Telegram user ID — find via [@userinfobot](https://t.me/userinfobot) |
 
@@ -96,7 +98,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 Episode content is fetched via a 3-strategy waterfall, stopping at the first success:
 
 1. **Transcript URL** — some podcast feeds publish a direct transcript link; fetched as-is
-2. **Whisper audio transcription** — downloads the episode audio (hard cap: 200 MB) and runs `faster-whisper` locally; Whisper model is lazy-loaded on first use to avoid slow startup
+2. **Audio transcription** — downloads the episode audio (hard cap: 200 MB) and transcribes via the configured backend (`TRANSCRIBER=whisper` runs `faster-whisper` locally; `TRANSCRIBER=groq` sends to Groq's Whisper API, splitting files >20 MB into parallel chunks automatically)
 3. **Description fallback** — uses the RSS `<description>` field when audio/transcript are unavailable
 
 Transcripts are capped at 500 KB / 100 K characters before being sent to Gemini. Long transcripts are chunked and corrected in parallel via Gemini before summarization.

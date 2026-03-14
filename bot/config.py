@@ -14,6 +14,8 @@ class Settings:
     whisper_model: str
     poll_interval_seconds: int
     admin_user_id: int
+    groq_api_key: str | None
+    transcriber_backend: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -35,6 +37,14 @@ class Settings:
         if missing:
             raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
 
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        transcriber_backend = os.getenv("TRANSCRIBER", "whisper").lower()
+
+        if transcriber_backend not in ("whisper", "groq"):
+            raise RuntimeError(f"Invalid TRANSCRIBER value '{transcriber_backend}': must be 'whisper' or 'groq'")
+        if transcriber_backend == "groq" and not groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is required when TRANSCRIBER=groq")
+
         return cls(
             telegram_bot_token=token,
             telegram_chat_id=int(chat_id),
@@ -43,6 +53,8 @@ class Settings:
             whisper_model=os.getenv("WHISPER_MODEL", "base"),
             poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "21600")),
             admin_user_id=int(admin_user_id),
+            groq_api_key=groq_api_key,
+            transcriber_backend=transcriber_backend,
         )
 
 
