@@ -36,9 +36,7 @@ async def test_setprompt_enter_refine_from_user_data():
 
     update, query = _make_callback_query("setprompt:refine:sub123")
     context = MagicMock()
-    context.user_data = {
-        "setprompt": {"generated_prompt": "existing prompt", "subscription_id": "sub123"}
-    }
+    context.user_data = {"setprompt": {"generated_prompt": "existing prompt", "subscription_id": "sub123"}}
 
     with patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")):
         result = await setprompt_enter_refine(update, context)
@@ -78,9 +76,7 @@ async def test_setprompt_refine_apply():
 
     update, msg = _make_message_update("make it shorter")
     context = MagicMock()
-    context.user_data = {
-        "setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}
-    }
+    context.user_data = {"setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}}
 
     with (
         patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),
@@ -101,9 +97,7 @@ async def test_setprompt_refine_save():
 
     update, query = _make_callback_query("setprompt:refine_save:sub123")
     context = MagicMock()
-    context.user_data = {
-        "setprompt": {"generated_prompt": "final prompt", "subscription_id": "sub123"}
-    }
+    context.user_data = {"setprompt": {"generated_prompt": "final prompt", "subscription_id": "sub123"}}
 
     with (
         patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),
@@ -122,9 +116,7 @@ async def test_setprompt_refine_apply_empty_instruction():
 
     update, msg = _make_message_update("   ")  # whitespace only
     context = MagicMock()
-    context.user_data = {
-        "setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}
-    }
+    context.user_data = {"setprompt": {"generated_prompt": "old prompt", "subscription_id": "sub123"}}
 
     with (
         patch("bot.handlers.setprompt.db.get_user_language", AsyncMock(return_value="en")),

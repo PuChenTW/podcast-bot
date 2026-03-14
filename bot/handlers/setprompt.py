@@ -33,33 +33,25 @@ def _regen_buttons(subscription_id: str, lang: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     gettext(lang, "action_accept"),
-                    callback_data=SetpromptActionCallback(
-                        action="confirm", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="confirm", subscription_id=subscription_id).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
                     gettext(lang, "action_refine"),
-                    callback_data=SetpromptActionCallback(
-                        action="refine", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="refine", subscription_id=subscription_id).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
                     gettext(lang, "action_retry"),
-                    callback_data=SetpromptActionCallback(
-                        action="regen", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="regen", subscription_id=subscription_id).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
                     gettext(lang, "cancel_btn"),
-                    callback_data=SetpromptActionCallback(
-                        action="cancel", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="cancel", subscription_id=subscription_id).serialize(),
                 )
             ],
         ]
@@ -72,25 +64,19 @@ def _refine_review_buttons(subscription_id: str, lang: str) -> InlineKeyboardMar
             [
                 InlineKeyboardButton(
                     gettext(lang, "action_refine_save"),
-                    callback_data=SetpromptActionCallback(
-                        action="refine_save", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="refine_save", subscription_id=subscription_id).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
                     gettext(lang, "action_refine_more"),
-                    callback_data=SetpromptActionCallback(
-                        action="refine_more", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="refine_more", subscription_id=subscription_id).serialize(),
                 )
             ],
             [
                 InlineKeyboardButton(
                     gettext(lang, "cancel_btn"),
-                    callback_data=SetpromptActionCallback(
-                        action="cancel", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="cancel", subscription_id=subscription_id).serialize(),
                 )
             ],
         ]
@@ -151,17 +137,13 @@ async def setprompt_pod_selected(update: Update, context: ContextTypes.DEFAULT_T
         [
             InlineKeyboardButton(
                 gettext(lang, "action_manual"),
-                callback_data=SetpromptActionCallback(
-                    action="manual", subscription_id=subscription_id
-                ).serialize(),
+                callback_data=SetpromptActionCallback(action="manual", subscription_id=subscription_id).serialize(),
             )
         ],
         [
             InlineKeyboardButton(
                 gettext(lang, "action_auto"),
-                callback_data=SetpromptActionCallback(
-                    action="auto", subscription_id=subscription_id
-                ).serialize(),
+                callback_data=SetpromptActionCallback(action="auto", subscription_id=subscription_id).serialize(),
             )
         ],
     ]
@@ -170,9 +152,7 @@ async def setprompt_pod_selected(update: Update, context: ContextTypes.DEFAULT_T
             [
                 InlineKeyboardButton(
                     gettext(lang, "action_refine_existing"),
-                    callback_data=SetpromptActionCallback(
-                        action="refine", subscription_id=subscription_id
-                    ).serialize(),
+                    callback_data=SetpromptActionCallback(action="refine", subscription_id=subscription_id).serialize(),
                 )
             ]
         )
@@ -180,9 +160,7 @@ async def setprompt_pod_selected(update: Update, context: ContextTypes.DEFAULT_T
         [
             InlineKeyboardButton(
                 gettext(lang, "action_reset"),
-                callback_data=SetpromptActionCallback(
-                    action="clear", subscription_id=subscription_id
-                ).serialize(),
+                callback_data=SetpromptActionCallback(action="clear", subscription_id=subscription_id).serialize(),
             )
         ]
     )

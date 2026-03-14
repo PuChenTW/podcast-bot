@@ -92,14 +92,7 @@ async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(gettext(lang, "no_subscriptions"))
         return ConversationHandler.END
 
-    buttons = [
-        [
-            InlineKeyboardButton(
-                s.podcast_title, callback_data=UnsubCallback(subscription_id=s.id).serialize()
-            )
-        ]
-        for s in subs
-    ]
+    buttons = [[InlineKeyboardButton(s.podcast_title, callback_data=UnsubCallback(subscription_id=s.id).serialize())] for s in subs]
     buttons.append(
         [
             InlineKeyboardButton(

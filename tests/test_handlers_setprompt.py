@@ -38,9 +38,7 @@ async def test_manual_mode_saves_prompt():
     update, message = make_message_update("My custom prompt text")
     ctx = make_context({"setprompt": {"subscription_id": "sub-123"}})
 
-    with patch(
-        "bot.handlers.setprompt.db.set_subscription_prompt", new_callable=AsyncMock
-    ) as mock_save:
+    with patch("bot.handlers.setprompt.db.set_subscription_prompt", new_callable=AsyncMock) as mock_save:
         result = await setprompt_save_manual(update, ctx)
 
     mock_save.assert_awaited_once_with("sub-123", "My custom prompt text")

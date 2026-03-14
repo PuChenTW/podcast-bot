@@ -40,9 +40,7 @@ def _get_agent(model: str, system_prompt: str) -> Agent:
     return Agent(f"google-gla:{model}", instructions=system_prompt)
 
 
-async def summarize_episode(
-    title: str, content: str, model: str, custom_prompt: str | None = None
-) -> str:
+async def summarize_episode(title: str, content: str, model: str, custom_prompt: str | None = None) -> str:
     prompt_text = custom_prompt or _DEFAULT_SYSTEM_PROMPT
     agent = _get_agent(model, prompt_text)
     result = await agent.run(f"Episode title: {title}\n\n{content}")
@@ -59,12 +57,7 @@ async def generate_prompt_from_description(description: str, model: str) -> str:
 async def refine_prompt(current_prompt: str, instruction: str, model: str) -> str:
     """Apply a natural-language instruction to refine an existing system prompt."""
     agent = _get_agent(model, "You are a helpful assistant.")
-    msg = (
-        _REFINE_PROMPT_PREFIX
-        + current_prompt
-        + f"\n\nRefinement instruction: {instruction}"
-        + _REFINE_PROMPT_SUFFIX
-    )
+    msg = _REFINE_PROMPT_PREFIX + current_prompt + f"\n\nRefinement instruction: {instruction}" + _REFINE_PROMPT_SUFFIX
     result = await agent.run(msg)
     return result.output
 

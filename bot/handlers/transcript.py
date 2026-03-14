@@ -44,13 +44,7 @@ def _build_markdown(
     transcript: str,
 ) -> str:
     summary_section = summary or "(not yet generated)"
-    return (
-        f"# {episode_title}\n"
-        f"**Podcast:** {podcast_title}\n"
-        f"**Published:** {published_at or 'Unknown'}\n\n"
-        f"## Summary\n{summary_section}\n\n"
-        f"## Transcript\n{transcript}\n"
-    )
+    return f"# {episode_title}\n**Podcast:** {podcast_title}\n**Published:** {published_at or 'Unknown'}\n\n## Summary\n{summary_section}\n\n## Transcript\n{transcript}\n"
 
 
 async def cmd_transcript(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -81,9 +75,7 @@ async def cmd_transcript(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         ]
     )
-    await update.message.reply_text(
-        gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons)
-    )
+    await update.message.reply_text(gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons))
     return TRANSCRIPT_CHOOSE_POD
 
 
@@ -120,8 +112,12 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
     ]
     context.user_data["transcript_offset"] = 0
     keyboard = build_episode_keyboard(
-        context.user_data["transcript_eps"], 0, subscription_id, lang,
-        TranscriptEpCallback, TranscriptNavCallback,
+        context.user_data["transcript_eps"],
+        0,
+        subscription_id,
+        lang,
+        TranscriptEpCallback,
+        TranscriptNavCallback,
     )
     await query.edit_message_text(
         gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
@@ -145,9 +141,7 @@ async def transcript_nav(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return ConversationHandler.END
 
     context.user_data["transcript_offset"] = cb.offset
-    keyboard = build_episode_keyboard(
-        ep_data, cb.offset, cb.subscription_id, lang, TranscriptEpCallback, TranscriptNavCallback
-    )
+    keyboard = build_episode_keyboard(ep_data, cb.offset, cb.subscription_id, lang, TranscriptEpCallback, TranscriptNavCallback)
     await query.edit_message_reply_markup(reply_markup=keyboard)
     return TRANSCRIPT_CHOOSE_EP
 
@@ -187,9 +181,7 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
 
     try:
         transcriber = context.bot_data["transcriber"]
-        transcript = await get_or_fetch_transcript(
-            sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector=None
-        )
+        transcript = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector=None)
         if not already_cached:
             published_at = ep["entry"].get("published")
             await db.mark_episode_seen(
@@ -204,9 +196,7 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
         episode_id = await db.get_episode_id(sub.podcast_id, guid)
         summary = await db.get_episode_summary(user_id, episode_id) if episode_id else None
         published_at = ep["entry"].get("published")
-        content = _build_markdown(
-            ep["podcast_title"], ep["title"], published_at, summary, transcript
-        )
+        content = _build_markdown(ep["podcast_title"], ep["title"], published_at, summary, transcript)
         file_obj = io.BytesIO(content.encode("utf-8"))
         await context.bot.send_document(
             chat_id=update.effective_chat.id,

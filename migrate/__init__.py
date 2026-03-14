@@ -12,10 +12,7 @@ DEFAULT_MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
 
 
 async def ensure_migrations_table(db: aiosqlite.Connection) -> None:
-    await db.execute(
-        "CREATE TABLE IF NOT EXISTS schema_migrations "
-        "(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
-    )
+    await db.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
     await db.commit()
 
 

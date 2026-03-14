@@ -178,9 +178,7 @@ class TestGetEpisodeContent:
         ):
             result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected fallback"
-        corrector.assert_called_once_with(
-            "fallback description", "", "Ep 3", "fallback description"
-        )
+        corrector.assert_called_once_with("fallback description", "", "Ep 3", "fallback description")
 
     async def test_content_truncated(self):
         long_text = "x" * (MAX_TRANSCRIPT_CHARS + 100)
@@ -220,9 +218,7 @@ class TestFetchNewEpisodes:
             patch("bot.feed.feedparser.parse", return_value=mock_feed),
             patch("bot.feed.get_episode_content", AsyncMock(return_value="content")),
         ):
-            result = await fetch_new_episodes(
-                "user1", "pod1", "http://example.com/feed.rss", is_seen
-            )
+            result = await fetch_new_episodes("user1", "pod1", "http://example.com/feed.rss", is_seen)
         assert len(result) == 1
         assert result[0].guid == "guid2"
 

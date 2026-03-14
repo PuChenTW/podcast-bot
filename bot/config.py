@@ -42,9 +42,7 @@ class Settings:
         transcriber_backend = os.getenv("TRANSCRIBER", "whisper").lower()
 
         if transcriber_backend not in ("whisper", "groq"):
-            raise RuntimeError(
-                f"Invalid TRANSCRIBER value '{transcriber_backend}': must be 'whisper' or 'groq'"
-            )
+            raise RuntimeError(f"Invalid TRANSCRIBER value '{transcriber_backend}': must be 'whisper' or 'groq'")
         if transcriber_backend == "groq" and not groq_api_key:
             raise RuntimeError("GROQ_API_KEY is required when TRANSCRIBER=groq")
 

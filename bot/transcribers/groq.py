@@ -16,6 +16,7 @@ class GroqTranscriber:
     def _get_client(self):
         if self._client is None:
             from groq import AsyncGroq
+
             self._client = AsyncGroq(api_key=self._api_key)
         return self._client
 

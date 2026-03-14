@@ -81,9 +81,7 @@ def test_discover_normalizes_version(migrations_dir):
 async def test_ensure_migrations_table_creates(db_path):
     async with aiosqlite.connect(db_path) as db:
         await ensure_migrations_table(db)
-        async with db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
-        ) as cur:
+        async with db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'") as cur:
             row = await cur.fetchone()
     assert row is not None
 

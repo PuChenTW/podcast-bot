@@ -46,6 +46,4 @@ async def lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 language_handler = CommandHandler("language", cmd_language)
-language_callback_handler = CallbackQueryHandler(
-    lang_selected, pattern=r"^lang:(en|zh-tw)$"
-)
+language_callback_handler = CallbackQueryHandler(lang_selected, pattern=r"^lang:(en|zh-tw)$")

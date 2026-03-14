@@ -57,15 +57,11 @@ async def cmd_digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             )
         ]
     )
-    await update.message.reply_text(
-        gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons)
-    )
+    await update.message.reply_text(gettext(lang, "select_podcast"), reply_markup=InlineKeyboardMarkup(buttons))
     return DIGEST_CHOOSE_POD
 
 
-async def digest_pod_selected(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
@@ -98,13 +94,15 @@ async def digest_pod_selected(
     ]
     context.user_data["digest_offset"] = 0
     keyboard = build_episode_keyboard(
-        context.user_data["digest_eps"], 0, subscription_id, lang,
-        DigestEpCallback, DigestNavCallback,
+        context.user_data["digest_eps"],
+        0,
+        subscription_id,
+        lang,
+        DigestEpCallback,
+        DigestNavCallback,
     )
     await query.edit_message_text(
-        gettext(
-            lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"
-        ),
+        gettext(lang, "choose_episode", title=f"<b>{_html.escape(sub.podcast_title)}</b>"),
         reply_markup=keyboard,
         parse_mode="HTML",
     )
@@ -125,9 +123,7 @@ async def digest_nav(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return ConversationHandler.END
 
     context.user_data["digest_offset"] = cb.offset
-    keyboard = build_episode_keyboard(
-        ep_data, cb.offset, cb.subscription_id, lang, DigestEpCallback, DigestNavCallback
-    )
+    keyboard = build_episode_keyboard(ep_data, cb.offset, cb.subscription_id, lang, DigestEpCallback, DigestNavCallback)
     await query.edit_message_reply_markup(reply_markup=keyboard)
     return DIGEST_CHOOSE_EP
 
@@ -157,9 +153,7 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     sub = await db.get_subscription_by_id(subscription_id)
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     ep = ep_data[episode_index]
-    guid = (
-        ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
-    )
+    guid = ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
     has_transcript = bool(await db.get_episode_transcript(sub.podcast_id, guid))
     state_msg = gettext(lang, "summarizing") if has_transcript else gettext(lang, "transcribing")
     await query.edit_message_text(
@@ -170,9 +164,7 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         corrector = partial(correct_transcript, settings.gemini_model)
         transcriber = context.bot_data["transcriber"]
-        content = await get_or_fetch_transcript(
-            sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector
-        )
+        content = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector)
         summary = await summarize_episode(
             ep["title"],
             content,

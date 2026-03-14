@@ -20,9 +20,7 @@ def build_episode_keyboard(
         [
             InlineKeyboardButton(
                 ep["title"][:60],
-                callback_data=ep_callback_cls(
-                    subscription_id=subscription_id, index=offset + i
-                ).serialize(),
+                callback_data=ep_callback_cls(subscription_id=subscription_id, index=offset + i).serialize(),
             )
         ]
         for i, ep in enumerate(page)
@@ -32,18 +30,14 @@ def build_episode_keyboard(
         nav_row.append(
             InlineKeyboardButton(
                 gettext(lang, "nav_prev"),
-                callback_data=nav_callback_cls(
-                    subscription_id=subscription_id, offset=offset - _PAGE_SIZE
-                ).serialize(),
+                callback_data=nav_callback_cls(subscription_id=subscription_id, offset=offset - _PAGE_SIZE).serialize(),
             )
         )
     if offset + _PAGE_SIZE < len(entries):
         nav_row.append(
             InlineKeyboardButton(
                 gettext(lang, "nav_next"),
-                callback_data=nav_callback_cls(
-                    subscription_id=subscription_id, offset=offset + _PAGE_SIZE
-                ).serialize(),
+                callback_data=nav_callback_cls(subscription_id=subscription_id, offset=offset + _PAGE_SIZE).serialize(),
             )
         )
     if nav_row:

@@ -41,11 +41,7 @@ async def init_db() -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await migrate.ensure_migrations_table(db)
         applied = await migrate.get_applied_versions(db)
-        pending = [
-            (v, up)
-            for v, up, _ in migrate.discover_migrations(migrate.DEFAULT_MIGRATIONS_DIR)
-            if v not in applied
-        ]
+        pending = [(v, up) for v, up, _ in migrate.discover_migrations(migrate.DEFAULT_MIGRATIONS_DIR) if v not in applied]
         for version, up_path in pending:
             logger.info("Applying migration %d: %s", version, up_path.name)
             await db.executescript(up_path.read_text())
@@ -60,9 +56,7 @@ async def init_db() -> None:
 
 async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
     async with _connect() as db:
-        async with db.execute(
-            "SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,)
-        ) as cursor:
+        async with db.execute("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,)) as cursor:
             row = await cursor.fetchone()
         if row:
             return row[0]
@@ -77,9 +71,7 @@ async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
 
 async def get_user_language(telegram_user_id: int) -> str:
     async with _connect() as db:
-        async with db.execute(
-            "SELECT language FROM users WHERE telegram_user_id = ?", (telegram_user_id,)
-        ) as cursor:
+        async with db.execute("SELECT language FROM users WHERE telegram_user_id = ?", (telegram_user_id,)) as cursor:
             row = await cursor.fetchone()
         if row and row[0]:
             return row[0]
@@ -144,8 +136,7 @@ async def get_all_subscriptions() -> list[SubscriptionWithChat]:
 async def remove_subscription(user_id: str, name_fragment: str) -> bool:
     async with _connect() as db:
         async with db.execute(
-            "SELECT s.id FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
-            "WHERE s.user_id = ? AND LOWER(p.title) LIKE LOWER(?)",
+            "SELECT s.id FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id WHERE s.user_id = ? AND LOWER(p.title) LIKE LOWER(?)",
             (user_id, f"%{name_fragment}%"),
         ) as cursor:
             row = await cursor.fetchone()
@@ -165,9 +156,7 @@ async def remove_subscription_by_id(subscription_id: str) -> None:
 async def get_subscription_by_id(subscription_id: str) -> Subscription | None:
     async with _connect() as db:
         async with db.execute(
-            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt "
-            "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
-            "WHERE s.id = ?",
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id WHERE s.id = ?",
             (subscription_id,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -187,8 +176,7 @@ async def get_episode_id(podcast_id: str, guid: str) -> str | None:
 async def is_episode_seen(user_id: str, podcast_id: str, guid: str) -> bool:
     async with _connect() as db:
         async with db.execute(
-            "SELECT 1 FROM user_episodes ue JOIN episodes e ON ue.episode_id = e.id "
-            "WHERE ue.user_id = ? AND e.podcast_id = ? AND e.episode_guid = ?",
+            "SELECT 1 FROM user_episodes ue JOIN episodes e ON ue.episode_id = e.id WHERE ue.user_id = ? AND e.podcast_id = ? AND e.episode_guid = ?",
             (user_id, podcast_id, guid),
         ) as cursor:
             return await cursor.fetchone() is not None
@@ -220,8 +208,7 @@ async def mark_episode_seen(
             row = await cursor.fetchone()
         episode_id = row[0]
         await db.execute(
-            "INSERT INTO user_episodes (id, user_id, episode_id, summary) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(user_id, episode_id) DO UPDATE SET summary = COALESCE(excluded.summary, summary)",
+            "INSERT INTO user_episodes (id, user_id, episode_id, summary) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, episode_id) DO UPDATE SET summary = COALESCE(excluded.summary, summary)",
             (_new_id(), user_id, episode_id, summary),
         )
         await db.commit()

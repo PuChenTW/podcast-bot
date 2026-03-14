@@ -39,9 +39,7 @@ async def _process_episode(bot, sub, episode, chat_id: int, corrector) -> None:
     except Exception as exc:
         logger.error("Error processing episode %s: %s", episode.title, exc)
         # Still mark as seen to avoid retrying broken episodes indefinitely
-        await db.mark_episode_seen(
-            sub.user_id, sub.podcast_id, episode.guid, title=episode.title
-        )
+        await db.mark_episode_seen(sub.user_id, sub.podcast_id, episode.guid, title=episode.title)
 
 
 async def poll_all_feeds(app: Application) -> None:

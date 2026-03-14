@@ -27,15 +27,14 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     level=logging.INFO,
 )
+logging.getLogger("google_genai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
 def _build_transcriber(s) -> Transcriber:
     if s.transcriber_backend == "groq":
-        return TranscriberPipeline(
-            [AudioPipeline(GroqTranscriber(s.groq_api_key)), AudioPipeline(WhisperTranscriber(s.whisper_model))]
-        )
+        return TranscriberPipeline([AudioPipeline(GroqTranscriber(s.groq_api_key)), AudioPipeline(WhisperTranscriber(s.whisper_model))])
     return AudioPipeline(WhisperTranscriber(s.whisper_model))
 
 
@@ -67,13 +66,7 @@ def main() -> None:
     # Set Gemini API key for pydantic-ai
     os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
 
-    app = (
-        Application.builder()
-        .token(settings.telegram_bot_token)
-        .post_init(post_init)
-        .post_shutdown(post_shutdown)
-        .build()
-    )
+    app = Application.builder().token(settings.telegram_bot_token).post_init(post_init).post_shutdown(post_shutdown).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(subscribe_conv)

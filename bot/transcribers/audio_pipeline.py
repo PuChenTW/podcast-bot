@@ -18,10 +18,18 @@ def _split_audio(path: str, max_bytes: int) -> list[str]:
         file_size = os.path.getsize(path)
         result = subprocess.run(
             [
-                "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1", path,
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                path,
             ],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             logger.warning("ffprobe failed: %s", result.stderr)
@@ -30,9 +38,10 @@ def _split_audio(path: str, max_bytes: int) -> list[str]:
         n_chunks = math.ceil(file_size / max_bytes)
         chunk_duration = total_duration / n_chunks
         fmt_result = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=format_name",
-             "-of", "default=noprint_wrappers=1:nokey=1", path],
-            capture_output=True, text=True, timeout=30,
+            ["ffprobe", "-v", "error", "-show_entries", "format=format_name", "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         fmt = fmt_result.stdout.strip().split(",")[0] if fmt_result.returncode == 0 else ""
         suffix = FORMAT_TO_EXT.get(fmt, ".mp3")
@@ -43,11 +52,20 @@ def _split_audio(path: str, max_bytes: int) -> list[str]:
             tmp.close()
             r = subprocess.run(
                 [
-                    "ffmpeg", "-y", "-i", path,
-                    "-ss", str(offset), "-t", str(chunk_duration),
-                    "-c", "copy", tmp.name,
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    path,
+                    "-ss",
+                    str(offset),
+                    "-t",
+                    str(chunk_duration),
+                    "-c",
+                    "copy",
+                    tmp.name,
                 ],
-                capture_output=True, timeout=120,
+                capture_output=True,
+                timeout=120,
             )
             if r.returncode != 0:
                 logger.warning("ffmpeg chunk %d failed: %s", i, r.stderr)
@@ -78,9 +96,10 @@ class AudioPipeline:
             # Detect format
             fmt_result = await asyncio.to_thread(
                 subprocess.run,
-                ["ffprobe", "-v", "error", "-show_entries", "format=format_name",
-                 "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
-                capture_output=True, text=True, timeout=30,
+                ["ffprobe", "-v", "error", "-show_entries", "format=format_name", "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if fmt_result.returncode == 0:
                 fmt = fmt_result.stdout.strip().split(",")[0]
@@ -97,7 +116,8 @@ class AudioPipeline:
                 conv_result = await asyncio.to_thread(
                     subprocess.run,
                     ["ffmpeg", "-y", "-i", audio_path, tmp.name],
-                    capture_output=True, timeout=300,
+                    capture_output=True,
+                    timeout=300,
                 )
                 if conv_result.returncode == 0:
                     working_path = tmp.name

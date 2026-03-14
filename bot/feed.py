@@ -163,12 +163,7 @@ async def get_episode_content(
         chunks = _split_chunks(text, CORRECTION_CHUNK_CHARS)
         if len(chunks) == 1:
             return await corrector(text, podcast_title, ep_title, description)
-        results = await asyncio.gather(
-            *[
-                corrector(chunk, podcast_title, ep_title, description)
-                for chunk in chunks
-            ]
-        )
+        results = await asyncio.gather(*[corrector(chunk, podcast_title, ep_title, description) for chunk in chunks])
         return "\n\n".join(results)
 
     url = _resolve_transcript_url(entry)
@@ -213,26 +208,18 @@ async def resolve_rss_url(url: str) -> str:
             resp.raise_for_status()
             data = resp.json()
     except httpx.TimeoutException:
-        raise ValueError(
-            "Apple Podcasts lookup timed out. Try again or paste the RSS URL directly."
-        )
+        raise ValueError("Apple Podcasts lookup timed out. Try again or paste the RSS URL directly.")
     except Exception as exc:
         logger.warning("iTunes lookup failed for id=%s: %s", podcast_id, exc)
-        raise ValueError(
-            "Apple Podcasts lookup failed. Try again or paste the RSS URL directly."
-        )
+        raise ValueError("Apple Podcasts lookup failed. Try again or paste the RSS URL directly.")
 
     results = data.get("results", [])
     if not results:
-        raise ValueError(
-            "Couldn't find a podcast with that Apple ID. It may be private or removed."
-        )
+        raise ValueError("Couldn't find a podcast with that Apple ID. It may be private or removed.")
 
     feed_url = results[0].get("feedUrl")
     if not feed_url:
-        raise ValueError(
-            "This podcast doesn't have a public RSS feed on Apple Podcasts."
-        )
+        raise ValueError("This podcast doesn't have a public RSS feed on Apple Podcasts.")
 
     return feed_url
 
@@ -275,10 +262,7 @@ async def fetch_feed_episodes(
 ) -> list[Episode]:
     """Return up to `limit` most-recent episodes from the feed."""
     feed = await asyncio.to_thread(feedparser.parse, rss_url)
-    return [
-        await _parse_entry(e, transcriber, corrector=corrector)
-        for e in feed.entries[:limit]
-    ]
+    return [await _parse_entry(e, transcriber, corrector=corrector) for e in feed.entries[:limit]]
 
 
 async def fetch_new_episodes(

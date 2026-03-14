@@ -1,4 +1,5 @@
 """Unit tests for AudioPipeline."""
+
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
