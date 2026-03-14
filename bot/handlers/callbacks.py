@@ -29,6 +29,18 @@ class LangCallback(BaseModel):
         return cls(lang=lang)
 
 
+class OnboardLangCallback(BaseModel):
+    lang: str
+
+    def serialize(self) -> str:
+        return f"onboard:{self.lang}"
+
+    @classmethod
+    def parse(cls, data: str) -> "OnboardLangCallback":
+        _, lang = data.split(":", 1)
+        return cls(lang=lang)
+
+
 class DigestPodCallback(BaseModel):
     subscription_id: Optional[str]
 

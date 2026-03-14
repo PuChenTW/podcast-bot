@@ -72,6 +72,16 @@ TRANSLATIONS = {
         # Language
         "language_prompt": "Please select your language:",
         "language_set": "Language set to English.",
+        # Onboarding
+        "onboarding_features": (
+            "Here's what this bot can do for you:\n\n"
+            "📬 <b>Auto summaries</b> — Subscribe to a podcast and get AI-generated summaries delivered automatically whenever a new episode drops.\n\n"
+            "🎧 <b>On-demand digest</b> — Pick any episode from your subscriptions and get an instant summary.\n\n"
+            "📄 <b>Transcripts</b> — Download the full transcript of any episode as a Markdown file.\n\n"
+            "✏️ <b>Custom prompt</b> — Set a personal summarization style for each podcast (e.g. bullet points, key takeaways, casual tone).\n\n"
+            "To get started, subscribe to your first podcast:\n"
+            "/subscribe — paste an RSS or Apple Podcasts link"
+        ),
     },
     "zh-tw": {
         "start_message": (
@@ -146,6 +156,16 @@ TRANSLATIONS = {
         # Language
         "language_prompt": "請選擇你的語言設定：",
         "language_set": "已將語言設定為繁體中文。",
+        # Onboarding
+        "onboarding_features": (
+            "這個 Bot 可以幫你做到：\n\n"
+            "📬 <b>自動摘要</b> — 訂閱 Podcast 後，每有新集數就自動收到 AI 生成的摘要。\n\n"
+            "🎧 <b>隨選摘要</b> — 從訂閱清單中選擇任一集，立即生成摘要。\n\n"
+            "📄 <b>逐字稿</b> — 下載任一集的完整逐字稿 Markdown 檔。\n\n"
+            "✏️ <b>自訂摘要風格</b> — 為每個 Podcast 設定個人化的摘要風格（例如條列重點、輕鬆語氣）。\n\n"
+            "開始使用，先訂閱第一個 Podcast：\n"
+            "/subscribe — 貼上 RSS 連結或 Apple Podcasts 網址"
+        ),
     },
 }
 

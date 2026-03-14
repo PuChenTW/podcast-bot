@@ -7,6 +7,7 @@ from bot.handlers.setprompt import setprompt_conv
 from bot.handlers.subscribe import (
     cmd_list,
     cmd_start,
+    start_lang_handler,
     subscribe_conv,
     unsubscribe_conv,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "cmd_start",
     "cmd_list",
     "cmd_reload",
+    "start_lang_handler",
     "subscribe_conv",
     "unsubscribe_conv",
     "digest_conv",

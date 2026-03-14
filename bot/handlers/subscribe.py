@@ -12,7 +12,7 @@ from telegram.ext import (
 
 from bot import database as db
 from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
-from bot.handlers.callbacks import UnsubCallback
+from bot.handlers.callbacks import OnboardLangCallback, UnsubCallback
 from bot.i18n import gettext
 
 logger = logging.getLogger(__name__)
@@ -20,10 +20,43 @@ logger = logging.getLogger(__name__)
 SUBSCRIBE_WAITING_URL = 0
 
 
+_WELCOME_INTRO = (
+    "🎙️ Welcome to Podcast Summary Bot!\n"
+    "嗨！歡迎使用 Podcast 摘要 Bot！\n\n"
+    "This bot automatically summarizes new podcast episodes for you.\n"
+    "這個 Bot 會自動幫你摘要最新的 Podcast 集數。\n\n"
+    "Please choose your language / 請選擇語言："
+)
+
+_WELCOME_BUTTONS = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton("English", callback_data=OnboardLangCallback(lang="en").serialize()),
+            InlineKeyboardButton("繁體中文", callback_data=OnboardLangCallback(lang="zh-tw").serialize()),
+        ]
+    ]
+)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    lang = await db.get_user_language(user.id)
-    await update.message.reply_text(gettext(lang, "start_message"))
+    await db.get_or_create_user(user.id, update.effective_chat.id)
+    await update.message.reply_text(_WELCOME_INTRO, reply_markup=_WELCOME_BUTTONS)
+
+
+async def start_lang_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Callback for language selection during /start onboarding."""
+    query = update.callback_query
+    await query.answer()
+
+    selected_lang = OnboardLangCallback.parse(query.data).lang
+    user = update.effective_user
+
+    await db.set_user_language(user.id, selected_lang)
+    await query.edit_message_text(gettext(selected_lang, "onboarding_features"), parse_mode="HTML")
+
+
+start_lang_handler = CallbackQueryHandler(start_lang_chosen, pattern=r"^onboard:(en|zh-tw)$")
 
 
 async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

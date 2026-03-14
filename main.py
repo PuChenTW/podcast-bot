@@ -16,6 +16,7 @@ from bot.handlers import (
     language_callback_handler,
     language_handler,
     setprompt_conv,
+    start_lang_handler,
     subscribe_conv,
     transcript_conv,
     unsubscribe_conv,
@@ -69,6 +70,7 @@ def main() -> None:
     app = Application.builder().token(settings.telegram_bot_token).post_init(post_init).post_shutdown(post_shutdown).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(start_lang_handler)
     app.add_handler(subscribe_conv)
     app.add_handler(unsubscribe_conv)
     app.add_handler(CommandHandler("list", cmd_list))
