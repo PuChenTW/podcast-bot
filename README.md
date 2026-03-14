@@ -91,7 +91,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/handlers/callbacks.py` | Pydantic models for typed inline-keyboard callback data |
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-TW` |
-| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes` (ULID primary keys) |
+| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes` (ULID primary keys) |
 
 ## Content Pipeline
 
@@ -115,10 +115,12 @@ Multi-step flows (`/subscribe`, `/digest`, `/transcript`, `/setprompt`, `/unsubs
 
 ```
 users(id ULID PK, telegram_user_id, chat_id, language, created_at)
-subscriptions(id ULID PK, user_id→users, podcast_title, rss_url, custom_prompt, created_at)
-episodes(id ULID PK, subscription_id→subscriptions, episode_guid, title, published_at,
-         summary, transcript, notified_at)
-  UNIQUE(subscription_id, episode_guid)  -- dedup key
+podcasts(id ULID PK, rss_url UNIQUE, title, created_at)
+subscriptions(id ULID PK, user_id→users, podcast_id→podcasts, custom_prompt, created_at)
+episodes(id ULID PK, podcast_id→podcasts, episode_guid, title, published_at, transcript)
+  UNIQUE(podcast_id, episode_guid)  -- shared across users
+user_episodes(id ULID PK, user_id→users, episode_id→episodes, summary, notified_at)
+  UNIQUE(user_id, episode_id)  -- per-user delivery record
 ```
 
 ## Database Migrations

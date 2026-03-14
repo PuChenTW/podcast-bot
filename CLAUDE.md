@@ -57,7 +57,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/handlers/admin.py` | `/reload` command (admin-only); `@admin_only` decorator checks `settings.admin_user_id` |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-tw` |
 | `bot/formatting.py` | Converts Gemini Markdown → Telegram HTML; `format_summary()` and `send_html()` helpers |
-| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `subscriptions`, `episodes`. ULIDs for IDs |
+| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes`. ULIDs for IDs |
 | `migrate/` | DB migration package; `python -m migrate [up\|down <version>\|status]` |
 | `migrations/` | SQL migration files: `NNN_up.sql` / `NNN_down.sql` |
 
@@ -77,10 +77,12 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 
 ```
 users(id ULID, telegram_user_id, chat_id, language, created_at)
-subscriptions(id ULID, user_id→users, podcast_title, rss_url, custom_prompt, created_at)
-episodes(id ULID, subscription_id→subscriptions, episode_guid, title, published_at,
-         summary, transcript, notified_at)
-  UNIQUE(subscription_id, episode_guid)  -- dedup key
+podcasts(id ULID, rss_url UNIQUE, title, created_at)
+subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, created_at)
+episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript)
+  UNIQUE(podcast_id, episode_guid)  -- shared across users
+user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified_at)
+  UNIQUE(user_id, episode_id)  -- per-user delivery record
 ```
 
 ## Key Patterns & Gotchas
@@ -107,6 +109,10 @@ episodes(id ULID, subscription_id→subscriptions, episode_guid, title, publishe
 **Sending files:** `context.bot.send_document(chat_id=..., document=InputFile(io.BytesIO(content.encode()), filename=...), caption=...)` — see `bot/handlers/transcript.py`. Use distinct `user_data` keys per flow (e.g. `"transcript_eps"` vs `"digest_eps"`).
 
 **aiosqlite testing:** Use a temp file path, NOT `:memory:` — each `aiosqlite.connect()` call opens a new connection, so `:memory:` gives each call a fresh empty DB. Tests use `monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))`.
+
+**DB functions — episode lookup:** `is_episode_seen(user_id, podcast_id, guid)`, `mark_episode_seen(user_id, podcast_id, guid, ...)`, `get_episode_transcript(podcast_id, guid)`, `get_episode_summary(user_id, episode_id)` — episode_id is the episodes row ULID; use `get_episode_id(podcast_id, guid)` to resolve it. Get `podcast_id` from `Subscription.podcast_id` (populated via JOIN in all `get_subscription*` calls).
+
+**`init_db()`** runs pending migrations via `migrate` module's low-level helpers — schema source of truth is `migrations/NNN_up.sql`, not a `_SCHEMA` constant.
 
 ## Design Philosophy
 
