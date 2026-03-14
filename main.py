@@ -9,6 +9,7 @@ from telegram.ext import (
 from bot.config import settings
 from bot.database import init_db
 from bot.handlers import (
+    chat_conv,
     cmd_list,
     cmd_reload,
     cmd_start,
@@ -51,6 +52,7 @@ async def post_init(app: Application) -> None:
             ("list", "List your subscriptions"),
             ("digest", "Get a summary of a specific episode"),
             ("transcript", "Download raw transcript of an episode"),
+            ("chat", "Discuss an episode with AI"),
             ("setprompt", "Customize summarization style per podcast"),
             ("language", "Set language preference"),
             ("reload", "Pull latest code and restart"),
@@ -76,6 +78,7 @@ def main() -> None:
     app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(digest_conv)
     app.add_handler(transcript_conv)
+    app.add_handler(chat_conv)
     app.add_handler(setprompt_conv)
     app.add_handler(language_handler)
     app.add_handler(language_callback_handler)

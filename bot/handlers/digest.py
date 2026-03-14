@@ -11,6 +11,8 @@ from telegram.ext import (
 )
 
 from bot import database as db
+from bot.ai.corrector import correct_transcript
+from bot.ai.summarizer import summarize_episode
 from bot.config import settings
 from bot.feed import fetch_feed_entries
 from bot.formatting import format_summary, send_html
@@ -21,7 +23,6 @@ from bot.handlers.callbacks import (
 )
 from bot.handlers.episode_picker import build_episode_keyboard, get_or_fetch_transcript
 from bot.i18n import gettext
-from bot.summarizer import correct_transcript, summarize_episode
 
 logger = logging.getLogger(__name__)
 

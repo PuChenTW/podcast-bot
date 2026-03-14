@@ -12,6 +12,7 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 - Transcript download: same paginated flow, outputs a `.md` file; transcript cached in DB for instant repeat
 - Transcript chunking + parallel ASR correction via Gemini for long audio
 - Deduplicates episodes to avoid repeated summaries
+- Multi-turn AI chat about any episode via `/chat`
 
 ## Prerequisites
 
@@ -41,6 +42,7 @@ make run                    # run the bot
 | `/digest` | On-demand: pick a podcast → pick an episode (5/page, ◀/▶) → get a summary |
 | `/transcript` | Download episode transcript as a `.md` file (same paginated picker as `/digest`) |
 | `/setprompt` | Set a per-podcast summarization prompt: manual input, AI auto-generate, refine existing, or clear |
+| `/chat` | Pick a podcast → pick an episode → multi-turn AI conversation about the episode; `/end` to exit |
 | `/language` | Switch UI language (English / 繁體中文) |
 | `/reload` | Pull latest code and restart (admin only) |
 
@@ -85,9 +87,9 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
 | `bot/feed.py` | RSS parsing, transcript/audio fetching; delegates transcription via injected `Transcriber` |
 | `bot/transcribers/` | `Transcriber` protocol; `ChunkTranscriber` protocol; `WhisperTranscriber`; `GroqTranscriber`; `AudioPipeline` (format conversion + splitting); `TranscriberPipeline` fallback orchestrator |
-| `bot/summarizer.py` | Pydantic AI (Gemini) agent returning plain Markdown; prompt generation and refinement |
+| `bot/ai/` | Pydantic AI (Gemini) modules: `summarizer.py` (episode summaries), `chat.py` (multi-turn chat), `corrector.py` (ASR correction), `prompt_engineer.py` (prompt refinement) |
 | `bot/scheduler.py` | Polls subscriptions on interval; marks episodes seen even on error |
-| `bot/handlers/` | 7 handler modules: `subscribe.py`, `digest.py`, `transcript.py`, `setprompt.py`, `language.py`, `admin.py`, `callbacks.py` |
+| `bot/handlers/` | Handler modules: `subscribe.py`, `digest.py`, `transcript.py`, `chat.py`, `setprompt.py`, `language.py`, `admin.py`, `callbacks.py`; shared `episode_picker.py` widget |
 | `bot/handlers/callbacks.py` | Pydantic models for typed inline-keyboard callback data |
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-TW` |
@@ -105,7 +107,7 @@ Transcripts are capped at 500 KB / 100 K characters before being sent to Gemini.
 
 ## Handler Design Pattern
 
-Multi-step flows (`/subscribe`, `/digest`, `/transcript`, `/setprompt`, `/unsubscribe`) are implemented as PTB `ConversationHandler` state machines. Each state is expressed as a handler function, not a `user_data` dict key.
+Multi-step flows (`/subscribe`, `/digest`, `/transcript`, `/chat`, `/setprompt`, `/unsubscribe`) are implemented as PTB `ConversationHandler` state machines. Each state is expressed as a handler function, not a `user_data` dict key.
 
 - Each `ConversationHandler` instance lives at the bottom of its own module
 - Per-user `user_data` is keyed by flow (e.g. `"digest_eps"` vs `"transcript_eps"`) to prevent cross-flow data leakage

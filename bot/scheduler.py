@@ -7,10 +7,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 from telegram.ext import Application
 
 from bot import database as db
+from bot.ai.corrector import correct_transcript
+from bot.ai.summarizer import summarize_episode
 from bot.config import settings
 from bot.feed import fetch_new_episodes
 from bot.formatting import format_summary
-from bot.summarizer import correct_transcript, summarize_episode
 
 logger = logging.getLogger(__name__)
 

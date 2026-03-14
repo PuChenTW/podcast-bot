@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bot.summarizer import refine_prompt
+from bot.ai.prompt_engineer import refine_prompt
 
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ async def test_refine_prompt_returns_string():
     mock_agent = MagicMock()
     mock_agent.run = AsyncMock(return_value=mock_result)
 
-    with patch("bot.summarizer._get_agent", return_value=mock_agent):
+    with patch("bot.ai.prompt_engineer._get_agent", return_value=mock_agent):
         result = await refine_prompt("old prompt", "make it shorter", "gemini-2.0-flash")
 
     assert result == "Refined system prompt text"
@@ -31,7 +31,7 @@ async def test_refine_prompt_handles_braces_in_current_prompt():
     mock_agent = MagicMock()
     mock_agent.run = AsyncMock(return_value=mock_result)
 
-    with patch("bot.summarizer._get_agent", return_value=mock_agent):
+    with patch("bot.ai.prompt_engineer._get_agent", return_value=mock_agent):
         # AI-generated prompts often contain {placeholder} syntax — must not KeyError
         result = await refine_prompt("Format: **{headline}**\n• {point}", "make it shorter", "gemini-2.0-flash")
 

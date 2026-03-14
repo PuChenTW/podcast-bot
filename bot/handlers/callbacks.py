@@ -152,3 +152,47 @@ class SetpromptActionCallback(BaseModel):
     def parse(cls, data: str) -> "SetpromptActionCallback":
         parts = data.split(":", 2)
         return cls(action=parts[1], subscription_id=parts[2])
+
+
+class ChatPodCallback(BaseModel):
+    subscription_id: Optional[str]
+
+    def serialize(self) -> str:
+        return f"chat:pod:{self.subscription_id or 'cancel'}"
+
+    @classmethod
+    def parse(cls, data: str) -> "ChatPodCallback":
+        parts = data.split(":")
+        sid = parts[2]
+        return cls(subscription_id=None if sid == "cancel" else sid)
+
+
+class ChatNavCallback(BaseModel):
+    subscription_id: str
+    offset: int
+
+    def serialize(self) -> str:
+        return f"chat:nav:{self.subscription_id}:{self.offset}"
+
+    @classmethod
+    def parse(cls, data: str) -> "ChatNavCallback":
+        parts = data.split(":")
+        return cls(subscription_id=parts[2], offset=int(parts[3]))
+
+
+class ChatEpCallback(BaseModel):
+    subscription_id: Optional[str]
+    index: int = 0
+
+    def serialize(self) -> str:
+        if self.subscription_id is None:
+            return "chat:ep:cancel:0"
+        return f"chat:ep:{self.subscription_id}:{self.index}"
+
+    @classmethod
+    def parse(cls, data: str) -> "ChatEpCallback":
+        parts = data.split(":")
+        sid = parts[2]
+        if sid == "cancel":
+            return cls(subscription_id=None, index=0)
+        return cls(subscription_id=sid, index=int(parts[3]))

@@ -7,6 +7,7 @@ TRANSLATIONS = {
             "/list — show your subscriptions\n"
             "/digest — get a summary of a specific episode\n"
             "/transcript — download raw episode transcript\n"
+            "/chat — discuss an episode with AI\n"
             "/setprompt — customize summarization style per podcast\n"
             "/language — set language"
         ),
@@ -69,6 +70,19 @@ TRANSLATIONS = {
         "transcript_error": "Error fetching transcript. Please try again.",
         "transcript_caption": "Transcript: {title}",
         "transcript_summary_placeholder": "(not yet generated)",
+        # Chat
+        "chat_choose_pod": "Select a podcast to discuss:",
+        "chat_choose_ep": "Choose an episode from {title}:",
+        "chat_welcome": "Now discussing <b>{episode}</b> from <i>{podcast}</i>.\n\n{context_note}\n\nAsk me anything about this episode!",
+        "chat_context_full": "I have the transcript and summary loaded.",
+        "chat_context_summary_only": "I have the summary only (no transcript).",
+        "chat_context_none": "No transcript or summary — I'll discuss based on the title.",
+        "chat_end_button": "End Chat",
+        "chat_ended": "Chat ended.",
+        "chat_thinking": "Thinking…",
+        "chat_error": "Error generating response. You can keep chatting.",
+        "chat_session_expired": "Session expired. Run /chat to start a new conversation.",
+        "chat_ep_data_expired": "Episode data expired. Run /chat again.",
         # Language
         "language_prompt": "Please select your language:",
         "language_set": "Language set to English.",
@@ -91,6 +105,7 @@ TRANSLATIONS = {
             "/list — 顯示訂閱列表\n"
             "/digest — 獲取特定單集的摘要\n"
             "/transcript — 下載單集逐字稿\n"
+            "/chat — 與 AI 討論單集內容\n"
             "/setprompt — 自訂不同 podcast 的摘要風格\n"
             "/language — 設定語言"
         ),
@@ -153,6 +168,19 @@ TRANSLATIONS = {
         "transcript_error": "取得逐字稿時發生錯誤，請再試一次。",
         "transcript_caption": "逐字稿：{title}",
         "transcript_summary_placeholder": "（尚未生成）",
+        # Chat
+        "chat_choose_pod": "選擇一個 podcast 來討論：",
+        "chat_choose_ep": "請從 {title} 選擇一個單集：",
+        "chat_welcome": "現在討論 <i>{podcast}</i> 的 <b>{episode}</b>。\n\n{context_note}\n\n你想問什麼都可以！",
+        "chat_context_full": "我已載入逐字稿和摘要。",
+        "chat_context_summary_only": "我只有摘要（無逐字稿）。",
+        "chat_context_none": "沒有逐字稿或摘要，我將依據標題來討論。",
+        "chat_end_button": "結束對話",
+        "chat_ended": "對話已結束。",
+        "chat_thinking": "思考中…",
+        "chat_error": "生成回應時發生錯誤，你可以繼續提問。",
+        "chat_session_expired": "對話已過期，請執行 /chat 開始新的對話。",
+        "chat_ep_data_expired": "單集資料已過期，請重新執行 /chat。",
         # Language
         "language_prompt": "請選擇你的語言設定：",
         "language_set": "已將語言設定為繁體中文。",
