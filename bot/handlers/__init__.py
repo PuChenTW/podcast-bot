@@ -12,6 +12,7 @@ from bot.handlers.subscribe import (
     subscribe_conv,
     unsubscribe_conv,
 )
+from bot.handlers.fallback import orphaned_callback_handler
 from bot.handlers.transcript import transcript_conv
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "chat_conv",
     "language_handler",
     "language_callback_handler",
+    "orphaned_callback_handler",
 ]
