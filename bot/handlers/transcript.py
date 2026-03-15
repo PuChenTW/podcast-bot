@@ -11,7 +11,6 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from bot import database as db
 from bot.feed import fetch_feed_entries
 from bot.handlers.callbacks import (
     TranscriptEpCallback,
@@ -20,6 +19,7 @@ from bot.handlers.callbacks import (
 )
 from bot.handlers.episode_picker import build_episode_keyboard, get_or_fetch_transcript
 from bot.i18n import gettext
+from shared import database as db
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +107,7 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
         if not cached:
             await query.edit_message_text(gettext(lang, "rss_unavailable"))
             return ConversationHandler.END
-        entries = [
-            {"title": ep["title"] or "Untitled", "id": ep["episode_guid"], "enclosures": [], "links": [], "summary": ""}
-            for ep in cached
-        ]
+        entries = [{"title": ep["title"] or "Untitled", "id": ep["episode_guid"], "enclosures": [], "links": [], "summary": ""} for ep in cached]
 
     context.user_data["transcript_eps"] = [
         {

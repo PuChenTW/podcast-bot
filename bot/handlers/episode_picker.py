@@ -1,8 +1,8 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from bot import database as db
 from bot.feed import get_episode_content
 from bot.i18n import gettext
+from shared import database as db
 
 _PAGE_SIZE = 5
 

@@ -3,9 +3,9 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
-from bot import database as db
 from bot.handlers.callbacks import LangCallback
 from bot.i18n import gettext
+from shared import database as db
 
 logger = logging.getLogger(__name__)
 

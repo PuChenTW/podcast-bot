@@ -9,7 +9,6 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from bot import database as db
 from bot.ai.corrector import correct_transcript
 from bot.ai.summarizer import summarize_episode
 from bot.feed import fetch_feed_entries
@@ -21,6 +20,7 @@ from bot.handlers.callbacks import (
 )
 from bot.handlers.episode_picker import build_episode_keyboard, get_or_fetch_transcript
 from bot.i18n import gettext
+from shared import database as db
 
 logger = logging.getLogger(__name__)
 

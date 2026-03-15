@@ -11,7 +11,6 @@ from telegram.ext import (
     filters,
 )
 
-from bot import database as db
 from bot.ai.chat import _CHAT_TRANSCRIPT_LIMIT, chat_with_episode
 from bot.ai.condenser import condense_transcript
 from bot.feed import fetch_feed_entries
@@ -19,6 +18,7 @@ from bot.formatting import markdown_to_html, send_html
 from bot.handlers.callbacks import ChatEpCallback, ChatNavCallback, ChatPodCallback
 from bot.handlers.episode_picker import build_episode_keyboard
 from bot.i18n import gettext
+from shared import database as db
 
 logger = logging.getLogger(__name__)
 
