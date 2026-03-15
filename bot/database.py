@@ -173,6 +173,18 @@ async def get_episode_id(podcast_id: str, guid: str) -> str | None:
         return row[0] if row else None
 
 
+async def get_episodes_by_podcast(podcast_id: str, limit: int = 50) -> list[dict]:
+    """Return cached episodes for a podcast ordered by published_at DESC."""
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT episode_guid, title, published_at FROM episodes "
+            "WHERE podcast_id = ? ORDER BY published_at DESC LIMIT ?",
+            (podcast_id, limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
 async def is_episode_seen(user_id: str, podcast_id: str, guid: str) -> bool:
     async with _connect() as db:
         async with db.execute(
