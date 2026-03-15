@@ -1,4 +1,5 @@
 from bot.ai._agent import _get_agent
+from bot.config import get_settings
 
 _META_PROMPT = (
     "You are a prompt engineer. Given a user's description of a podcast and their desired summary style,"
@@ -15,15 +16,17 @@ Existing prompt:
 _REFINE_PROMPT_SUFFIX = "\n\nOutput only the revised system prompt text, nothing else."
 
 
-async def generate_prompt_from_description(description: str, model: str) -> str:
-    """Use Gemini to expand a user's plain-text description into a full system prompt."""
+async def generate_prompt_from_description(description: str) -> str:
+    """Use AI to expand a user's plain-text description into a full system prompt."""
+    model = get_settings().prompt_engineer_model
     agent = _get_agent(model, "You are a helpful assistant.")
     result = await agent.run(_META_PROMPT.format(user_description=description))
     return result.output
 
 
-async def refine_prompt(current_prompt: str, instruction: str, model: str) -> str:
+async def refine_prompt(current_prompt: str, instruction: str) -> str:
     """Apply a natural-language instruction to refine an existing system prompt."""
+    model = get_settings().prompt_engineer_model
     agent = _get_agent(model, "You are a helpful assistant.")
     msg = _REFINE_PROMPT_PREFIX + current_prompt + f"\n\nRefinement instruction: {instruction}" + _REFINE_PROMPT_SUFFIX
     result = await agent.run(msg)

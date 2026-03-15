@@ -10,12 +10,16 @@ load_dotenv()
 class Settings:
     telegram_bot_token: str
     gemini_api_key: str
-    gemini_model: str
+    ai_model: str
     whisper_model: str
     poll_interval_seconds: int
     admin_user_id: int
     groq_api_key: str | None
     transcriber_backend: str
+    summarizer_model: str
+    chat_model: str
+    corrector_model: str
+    prompt_engineer_model: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -42,15 +46,20 @@ class Settings:
         if transcriber_backend == "groq" and not groq_api_key:
             raise RuntimeError("GROQ_API_KEY is required when TRANSCRIBER=groq")
 
+        base = os.getenv("AI_MODEL", "google-gla:gemini-flash-lite-latest")
         return cls(
             telegram_bot_token=token,
             gemini_api_key=gemini_key,
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
+            ai_model=base,
             whisper_model=os.getenv("WHISPER_MODEL", "base"),
             poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "21600")),
             admin_user_id=int(admin_user_id),
             groq_api_key=groq_api_key,
             transcriber_backend=transcriber_backend,
+            summarizer_model=os.getenv("SUMMARIZER_MODEL", base),
+            chat_model=os.getenv("CHAT_MODEL", base),
+            corrector_model=os.getenv("CORRECTOR_MODEL", base),
+            prompt_engineer_model=os.getenv("PROMPT_ENGINEER_MODEL", base),
         )
 
 

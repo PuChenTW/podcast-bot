@@ -1,6 +1,7 @@
 from pydantic_ai.messages import ModelMessage
 
 from bot.ai._agent import _get_agent
+from bot.config import get_settings
 
 _CHAT_SYSTEM_PROMPT = (
     "You are a knowledgeable podcast discussion partner. Help the user explore, understand, and discuss the episode in depth.\n\n"
@@ -23,8 +24,8 @@ async def chat_with_episode(
     summary: str | None,
     history: list[ModelMessage],
     lang: str,
-    model: str,
 ) -> tuple[str, list[ModelMessage]]:
+    model = get_settings().chat_model
     if transcript and summary:
         context_section = _CHAT_CONTEXT_FULL.format(summary=summary, transcript=transcript[:_CHAT_TRANSCRIPT_LIMIT])
     elif summary:

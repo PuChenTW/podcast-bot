@@ -13,7 +13,6 @@ from telegram.ext import (
 
 from bot import database as db
 from bot.ai.chat import chat_with_episode
-from bot.config import get_settings
 from bot.feed import fetch_feed_entries
 from bot.formatting import markdown_to_html, send_html
 from bot.handlers.callbacks import ChatEpCallback, ChatNavCallback, ChatPodCallback
@@ -179,7 +178,6 @@ async def chat_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             summary=session["summary"],
             history=session["history"],
             lang=lang,
-            model=get_settings().gemini_model,
         )
         session["history"] = updated_history
     except Exception as exc:

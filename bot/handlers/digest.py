@@ -1,6 +1,5 @@
 import html as _html
 import logging
-from functools import partial
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -13,7 +12,6 @@ from telegram.ext import (
 from bot import database as db
 from bot.ai.corrector import correct_transcript
 from bot.ai.summarizer import summarize_episode
-from bot.config import get_settings
 from bot.feed import fetch_feed_entries
 from bot.formatting import format_summary, send_html
 from bot.handlers.callbacks import (
@@ -171,13 +169,11 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
     try:
-        corrector = partial(correct_transcript, get_settings().gemini_model)
         transcriber = context.bot_data["transcriber"]
-        content = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector)
+        content = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], correct_transcript)
         summary = await summarize_episode(
             ep["title"],
             content,
-            get_settings().gemini_model,
             custom_prompt=ep.get("custom_prompt"),
         )
         published_at = ep["entry"].get("published")

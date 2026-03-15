@@ -14,7 +14,7 @@ async def test_refine_prompt_returns_string():
     mock_agent.run = AsyncMock(return_value=mock_result)
 
     with patch("bot.ai.prompt_engineer._get_agent", return_value=mock_agent):
-        result = await refine_prompt("old prompt", "make it shorter", "gemini-2.0-flash")
+        result = await refine_prompt("old prompt", "make it shorter")
 
     assert result == "Refined system prompt text"
     mock_agent.run.assert_called_once()
@@ -33,6 +33,6 @@ async def test_refine_prompt_handles_braces_in_current_prompt():
 
     with patch("bot.ai.prompt_engineer._get_agent", return_value=mock_agent):
         # AI-generated prompts often contain {placeholder} syntax — must not KeyError
-        result = await refine_prompt("Format: **{headline}**\n• {point}", "make it shorter", "gemini-2.0-flash")
+        result = await refine_prompt("Format: **{headline}**\n• {point}", "make it shorter")
 
     assert result == "Refined"

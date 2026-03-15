@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from functools import partial
 
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -18,12 +17,11 @@ logger = logging.getLogger(__name__)
 _scheduler: AsyncScheduler | None = None
 
 
-async def _process_episode(bot, sub, episode, chat_id: int, corrector) -> None:
+async def _process_episode(bot, sub, episode, chat_id: int) -> None:
     try:
         summary = await summarize_episode(
             episode.title,
             episode.content,
-            get_settings().gemini_model,
             custom_prompt=sub.custom_prompt,
         )
         text = format_summary(sub.podcast_title, episode.title, summary)
@@ -49,9 +47,6 @@ async def poll_all_feeds(app: Application) -> None:
     transcriber = app.bot_data["transcriber"]
     subscriptions = await db.get_all_subscriptions()
 
-    # Pre-bind the AI model to the corrector callback
-    corrector = partial(correct_transcript, get_settings().gemini_model)
-
     for sub in subscriptions:
         try:
             new_episodes = await fetch_new_episodes(
@@ -61,7 +56,7 @@ async def poll_all_feeds(app: Application) -> None:
                 db.is_episode_seen,
                 transcriber=transcriber,
                 podcast_title=sub.podcast_title,
-                corrector=corrector,
+                corrector=correct_transcript,
             )
         except Exception as exc:
             logger.error("Error fetching feed %s: %s", sub.rss_url, exc)
@@ -69,7 +64,7 @@ async def poll_all_feeds(app: Application) -> None:
 
         chat_id = sub.chat_id  # capture before loop to avoid closure bug
         for episode in new_episodes:
-            await _process_episode(bot, sub, episode, chat_id, corrector)
+            await _process_episode(bot, sub, episode, chat_id)
             await asyncio.sleep(1)  # Telegram rate limit
 
 

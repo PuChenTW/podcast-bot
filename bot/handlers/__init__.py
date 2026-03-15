@@ -3,6 +3,7 @@
 from bot.handlers.admin import cmd_reload
 from bot.handlers.chat import chat_conv
 from bot.handlers.digest import digest_conv
+from bot.handlers.fallback import orphaned_callback_handler
 from bot.handlers.language import language_callback_handler, language_handler
 from bot.handlers.setprompt import setprompt_conv
 from bot.handlers.subscribe import (
@@ -12,7 +13,6 @@ from bot.handlers.subscribe import (
     subscribe_conv,
     unsubscribe_conv,
 )
-from bot.handlers.fallback import orphaned_callback_handler
 from bot.handlers.transcript import transcript_conv
 
 __all__ = [

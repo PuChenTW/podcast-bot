@@ -25,7 +25,7 @@ _APPLE_PODCAST_RE = re.compile(r"podcasts\.apple\.com/.+/id(\d+)")
 MAX_AUDIO_BYTES = 200_000_000  # 200 MB hard cap
 
 # Type alias for the transcript corrector callable.
-Corrector = Callable[[str, str, str, str, str], Awaitable[str]]
+Corrector = Callable[[str, str, str, str], Awaitable[str]]
 
 
 @dataclass

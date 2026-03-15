@@ -46,3 +46,7 @@ monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))
 ## Error recovery
 
 The scheduler marks an episode as seen even when processing fails. This is intentional — prevents infinite retry loops on bad episodes.
+
+## Settings in tests
+
+`tests/conftest.py` manually constructs a `Settings(...)` instance. Any new field added to `Settings` must also be added to the fixture — it will fail at collection time otherwise.

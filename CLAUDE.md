@@ -65,7 +65,11 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 |----------|---------|-------|
 | `TELEGRAM_BOT_TOKEN` | required | Bot API token |
 | `GEMINI_API_KEY` | required | Google Gemini key |
-| `GEMINI_MODEL` | `gemini-flash-lite-latest` | Summarization model |
+| `AI_MODEL` | `google-gla:gemini-flash-lite-latest` | Base model for all AI ops (full `provider:model` string) |
+| `SUMMARIZER_MODEL` | `AI_MODEL` | Override model for summarization only |
+| `CHAT_MODEL` | `AI_MODEL` | Override model for `/chat` only |
+| `CORRECTOR_MODEL` | `AI_MODEL` | Override model for transcript correction only |
+| `PROMPT_ENGINEER_MODEL` | `AI_MODEL` | Override model for `/setprompt` AI generation only |
 | `TRANSCRIBER` | `whisper` | `whisper` or `groq` |
 | `WHISPER_MODEL` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
 | `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |

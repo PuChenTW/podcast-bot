@@ -1,4 +1,5 @@
 from bot.ai._agent import _get_agent
+from bot.config import get_settings
 
 _DEFAULT_SYSTEM_PROMPT = (
     "You are a podcast summarizer. Given transcript or description text from a podcast episode,"
@@ -10,7 +11,8 @@ _DEFAULT_SYSTEM_PROMPT = (
 )
 
 
-async def summarize_episode(title: str, content: str, model: str, custom_prompt: str | None = None) -> str:
+async def summarize_episode(title: str, content: str, custom_prompt: str | None = None) -> str:
+    model = get_settings().summarizer_model
     prompt_text = custom_prompt or _DEFAULT_SYSTEM_PROMPT
     agent = _get_agent(model, prompt_text)
     result = await agent.run(f"Episode title: {title}\n\n{content}")

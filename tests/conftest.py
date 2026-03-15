@@ -11,12 +11,16 @@ def _fake_settings(monkeypatch):
     fake = Settings(
         telegram_bot_token="fake-token",
         gemini_api_key="fake-gemini-key",
-        gemini_model="gemini-flash-lite-latest",
+        ai_model="google-gla:gemini-flash-lite-latest",
         whisper_model="base",
         poll_interval_seconds=21600,
         admin_user_id=123,
         groq_api_key=None,
         transcriber_backend="whisper",
+        summarizer_model="google-gla:gemini-flash-lite-latest",
+        chat_model="google-gla:gemini-flash-lite-latest",
+        corrector_model="google-gla:gemini-flash-lite-latest",
+        prompt_engineer_model="google-gla:gemini-flash-lite-latest",
     )
     monkeypatch.setattr(_config, "_settings", fake)
 
