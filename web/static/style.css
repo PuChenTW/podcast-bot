@@ -21,17 +21,18 @@ nav a { text-decoration: none; color: #333; font-weight: bold; font-size: 1.1rem
     padding: 1rem;
     cursor: pointer;
     transition: box-shadow 0.15s;
+    overflow: hidden;
 }
 .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 .card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-.card .subtitle { color: #666; font-size: 0.85rem; margin: 0; }
+.card .subtitle { color: #666; font-size: 0.85rem; margin: 0 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .badge {
     display: inline-block;
     font-size: 0.75rem;
     padding: 2px 6px;
     border-radius: 4px;
-    margin-left: 0.5rem;
+    white-space: nowrap;
 }
 .badge-yes { background: #d4edda; color: #155724; }
 .badge-no  { background: #f8d7da; color: #721c24; }
@@ -60,8 +61,9 @@ nav a { text-decoration: none; color: #333; font-weight: bold; font-size: 1.1rem
     cursor: pointer;
 }
 .episode-row:hover { background: #f5f5f5; }
-.episode-title { font-weight: 500; }
-.episode-date { font-size: 0.85rem; color: #666; }
+.episode-title { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.episode-meta { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; margin-left: 0.75rem; }
+.episode-date { font-size: 0.85rem; color: #666; white-space: nowrap; }
 
 form { display: flex; gap: 0.5rem; margin: 1rem 0; }
 input[type=text], input[type=url] {

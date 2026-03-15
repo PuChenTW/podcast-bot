@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from bot import feed as rss
+from bot.feed import _parse_published
 from shared import database as db
 from web.auth import get_current_user
 
@@ -34,7 +35,7 @@ async def create_subscription(body: SubscribeRequest, user_id: str = Depends(get
     for entry in feed.entries:
         guid = entry.get("id") or entry.get("link") or entry.get("title", "")
         if guid:
-            await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=entry.get("published"))
+            await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=_parse_published(entry))
     return sub.model_dump()
 
 

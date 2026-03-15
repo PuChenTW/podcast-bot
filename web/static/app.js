@@ -154,7 +154,7 @@ async function renderEpisodeList(el, subId, page = 0) {
             row.className = 'episode-row';
             row.innerHTML = `
                 <span class="episode-title">${esc(ep.title || ep.episode_guid)}</span>
-                <span>
+                <span class="episode-meta">
                     <span class="episode-date">${ep.published_at ? ep.published_at.slice(0,10) : ''}</span>
                     <span class="badge ${ep.has_summary ? 'badge-yes' : 'badge-no'}">${ep.has_summary ? '✓ Summary' : 'No summary'}</span>
                 </span>
