@@ -4,16 +4,16 @@ import pytest
 from telegram import Update
 from telegram.ext import ConversationHandler
 
-from bot.database import (
-    add_subscription,
-    get_or_create_user,
-    get_subscription_by_id,
-    mark_episode_seen,
-)
 from bot.handlers.transcript import (
     _build_markdown,
     _safe_filename,
     transcript_ep_selected,
+)
+from shared.database import (
+    add_subscription,
+    get_or_create_user,
+    get_subscription_by_id,
+    mark_episode_seen,
 )
 
 # --- _safe_filename ---

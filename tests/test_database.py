@@ -1,4 +1,4 @@
-from bot.database import (
+from shared.database import (
     add_subscription,
     get_all_subscriptions,
     get_episode_id,

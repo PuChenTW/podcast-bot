@@ -7,7 +7,6 @@ from telegram.ext import (
 )
 
 from bot.config import get_settings
-from bot.database import init_db
 from bot.handlers import (
     chat_conv,
     cmd_list,
@@ -25,6 +24,7 @@ from bot.handlers import (
 )
 from bot.scheduler import start_scheduler, stop_scheduler
 from bot.transcribers import AudioPipeline, GroqTranscriber, Transcriber, TranscriberPipeline, WhisperTranscriber
+from shared.database import init_db
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
