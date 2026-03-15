@@ -32,9 +32,9 @@ async def create_subscription(body: SubscribeRequest, user_id: str = Depends(get
     # Mark all current feed entries as seen — no backlog flood
     # sub.podcast_id is already resolved by add_subscription; no extra DB call needed
     for entry in feed.entries:
-        guid = entry.get("id") or entry.get("link", "")
+        guid = entry.get("id") or entry.get("link") or entry.get("title", "")
         if guid:
-            await db.mark_episode_seen(user_id, sub.podcast_id, guid)
+            await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=entry.get("published"))
     return sub.model_dump()
 
 
