@@ -51,7 +51,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/database.py` | Async SQLite via aiosqlite — see `bot/CLAUDE.md` |
 | `bot/feed.py` | RSS parsing, transcript/audio fetching |
 | `bot/scheduler.py` | Polls subscriptions every `POLL_INTERVAL_SECONDS` |
-| `bot/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer — see `bot/ai/CLAUDE.md` |
+| `bot/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `bot/ai/CLAUDE.md` |
 | `bot/transcribers/` | Whisper + Groq backends, fallback pipeline — see `bot/transcribers/CLAUDE.md` |
 | `bot/handlers/` | Telegram command handlers — see `bot/handlers/CLAUDE.md` |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)`; unknown lang falls back to `zh-TW` |
@@ -70,6 +70,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `CHAT_MODEL` | `AI_MODEL` | Override model for `/chat` only |
 | `CORRECTOR_MODEL` | `AI_MODEL` | Override model for transcript correction only |
 | `PROMPT_ENGINEER_MODEL` | `AI_MODEL` | Override model for `/setprompt` AI generation only |
+| `CONDENSER_MODEL` | `AI_MODEL` | Override model for transcript condensation only |
 | `TRANSCRIBER` | `whisper` | `whisper` or `groq` |
 | `WHISPER_MODEL` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
 | `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |

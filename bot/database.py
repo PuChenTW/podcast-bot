@@ -236,6 +236,25 @@ async def get_episode_transcript(podcast_id: str, guid: str) -> str | None:
             return row[0] if row else None
 
 
+async def get_episode_condensed_transcript(podcast_id: str, guid: str) -> str | None:
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT condensed_transcript FROM episodes WHERE podcast_id = ? AND episode_guid = ?",
+            (podcast_id, guid),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
+
+async def save_episode_condensed_transcript(podcast_id: str, guid: str, condensed_transcript: str) -> None:
+    async with _connect() as db:
+        await db.execute(
+            "UPDATE episodes SET condensed_transcript = ? WHERE podcast_id = ? AND episode_guid = ?",
+            (condensed_transcript, podcast_id, guid),
+        )
+        await db.commit()
+
+
 async def get_episode_summary(user_id: str, episode_id: str) -> str | None:
     async with _connect() as db:
         async with db.execute(

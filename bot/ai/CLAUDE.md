@@ -7,6 +7,7 @@
 | `chat.py` | `chat_with_episode(...)` | Multi-turn chat; returns `(reply_str, updated_history)`; reads `chat_model` from settings |
 | `corrector.py` | `correct_transcript(text, podcast_title, episode_title, description)` | ASR error correction; reads `corrector_model` from settings |
 | `prompt_engineer.py` | `refine_prompt()`, `generate_prompt_from_description()` | Rewrites prompts per natural-language instruction; reads `prompt_engineer_model` from settings; does NOT persist |
+| `condenser.py` | `condense_transcript(transcript, podcast_title, episode_title)` | Condenses long transcripts to ~10 K chars for chat; reads `condenser_model` from settings |
 
 ## Summarizer return type
 

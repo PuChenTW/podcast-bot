@@ -12,7 +12,8 @@ from telegram.ext import (
 )
 
 from bot import database as db
-from bot.ai.chat import chat_with_episode
+from bot.ai.chat import _CHAT_TRANSCRIPT_LIMIT, chat_with_episode
+from bot.ai.condenser import condense_transcript
 from bot.feed import fetch_feed_entries
 from bot.formatting import markdown_to_html, send_html
 from bot.handlers.callbacks import ChatEpCallback, ChatNavCallback, ChatPodCallback
@@ -135,6 +136,18 @@ async def chat_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     episode_id = await db.get_episode_id(podcast_id, guid)
     db_user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     summary = await db.get_episode_summary(db_user_id, episode_id) if episode_id else None
+
+    if len(transcript) > _CHAT_TRANSCRIPT_LIMIT:
+        condensed = await db.get_episode_condensed_transcript(podcast_id, guid)
+        if condensed is None:
+            await query.edit_message_text(gettext(lang, "chat_condensing_transcript"))
+            try:
+                condensed = await condense_transcript(transcript, ep["podcast_title"], ep["title"])
+                await db.save_episode_condensed_transcript(podcast_id, guid, condensed)
+            except Exception:
+                logger.exception("condense_transcript failed for %s/%s", podcast_id, guid)
+                condensed = transcript
+        transcript = condensed
 
     context.user_data["chat_session"] = {
         "episode_title": ep["title"],
