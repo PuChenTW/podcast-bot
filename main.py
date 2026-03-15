@@ -16,6 +16,7 @@ from bot.handlers import (
     digest_conv,
     language_callback_handler,
     language_handler,
+    orphaned_callback_handler,
     setprompt_conv,
     start_lang_handler,
     subscribe_conv,
@@ -83,6 +84,7 @@ def main() -> None:
     app.add_handler(language_handler)
     app.add_handler(language_callback_handler)
     app.add_handler(CommandHandler("reload", cmd_reload))
+    app.add_handler(orphaned_callback_handler)  # catch-all: dismiss stale inline keyboard callbacks
 
     logger.info("Starting bot polling...")
     app.run_polling(drop_pending_updates=True)
