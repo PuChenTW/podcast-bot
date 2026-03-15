@@ -116,6 +116,8 @@ async function renderEpisodeList(el, subId, page = 0) {
         const sub = subs.find(s => s.id === subId);
         if (!sub) { showError(el, 'Subscription not found'); return; }
         const podId = sub.podcast_id;
+        // result is {episodes, page, has_prev, has_next}
+        if (!result || !result.episodes) { showError(el, 'Unexpected response from server'); return; }
         const episodes = result.episodes;
 
         el.innerHTML = `<p><a href="#/">← Back</a></p>`;
