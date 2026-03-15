@@ -200,8 +200,8 @@ async def get_episode_detail(user_id: str, podcast_id: str, guid: str) -> dict |
         return dict(row) if row else None
 
 
-async def get_episodes_by_podcast_with_summary(user_id: str, podcast_id: str, limit: int = 50) -> list[dict]:
-    """Return episodes for a podcast with has_summary flag for this user."""
+async def get_episodes_by_podcast_with_summary(user_id: str, podcast_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
+    """Return episodes for a podcast with has_summary flag for this user, newest first."""
     async with _connect() as db:
         async with db.execute(
             "SELECT e.id, e.episode_guid, e.title, e.published_at, "
@@ -209,8 +209,8 @@ async def get_episodes_by_podcast_with_summary(user_id: str, podcast_id: str, li
             "FROM episodes e "
             "LEFT JOIN user_episodes ue ON ue.episode_id = e.id AND ue.user_id = ? "
             "WHERE e.podcast_id = ? "
-            "ORDER BY e.published_at DESC LIMIT ?",
-            (user_id, podcast_id, limit),
+            "ORDER BY COALESCE(e.published_at, '') DESC LIMIT ? OFFSET ?",
+            (user_id, podcast_id, limit, offset),
         ) as cursor:
             rows = await cursor.fetchall()
     return [dict(r) for r in rows]

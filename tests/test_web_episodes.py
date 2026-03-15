@@ -26,9 +26,12 @@ async def test_episode_list(tmp_path, monkeypatch):
         resp = await c.get(f"/api/subscriptions/{sub_id}/episodes")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 1
-    assert data[0]["episode_guid"] == guid
-    assert data[0]["has_summary"] == 1
+    assert data["page"] == 0
+    assert data["has_prev"] is False
+    assert data["has_next"] is False
+    assert len(data["episodes"]) == 1
+    assert data["episodes"][0]["episode_guid"] == guid
+    assert data["episodes"][0]["has_summary"] == 1
 
 
 @pytest.mark.asyncio

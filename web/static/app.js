@@ -21,8 +21,10 @@ function route() {
     if (hash === '#/' || hash === '') {
         renderHome(content);
     } else if (hash.startsWith('#/podcast/')) {
-        const subId = hash.slice('#/podcast/'.length);
-        renderEpisodeList(content, subId);
+        const parts = hash.slice('#/podcast/'.length).split('?page=');
+        const subId = parts[0];
+        const page = parts[1] ? parseInt(parts[1], 10) : 0;
+        renderEpisodeList(content, subId, page);
     } else if (hash.startsWith('#/episode/')) {
         const parts = hash.slice('#/episode/'.length).split('/');
         const podId = parts[0];
@@ -102,18 +104,19 @@ async function renderHome(el) {
 }
 
 // ---- Episode list ----
-async function renderEpisodeList(el, subId) {
+async function renderEpisodeList(el, subId, page = 0) {
     el.innerHTML = '<p class="spinner">Loading episodes…</p>';
     try {
         // Fetch subscription metadata and episodes in parallel.
         // podcast_id must be known before rendering rows so click handlers work immediately.
-        const [subs, episodes] = await Promise.all([
+        const [subs, result] = await Promise.all([
             api('/subscriptions'),
-            api('/subscriptions/' + subId + '/episodes'),
+            api('/subscriptions/' + subId + '/episodes?page=' + page),
         ]);
         const sub = subs.find(s => s.id === subId);
         if (!sub) { showError(el, 'Subscription not found'); return; }
         const podId = sub.podcast_id;
+        const episodes = result.episodes;
 
         el.innerHTML = `<p><a href="#/">← Back</a></p>`;
 
@@ -139,7 +142,7 @@ async function renderEpisodeList(el, subId) {
         promptSection.appendChild(saveBtn);
         el.appendChild(promptSection);
 
-        if (episodes.length === 0) {
+        if (episodes.length === 0 && page === 0) {
             el.insertAdjacentHTML('beforeend', '<p>No episodes yet. The bot polls every 6 hours.</p>');
             return;
         }
@@ -159,6 +162,23 @@ async function renderEpisodeList(el, subId) {
             });
             el.appendChild(row);
         }
+
+        // Pagination controls
+        const nav = document.createElement('div');
+        nav.style.cssText = 'display:flex;gap:0.5rem;margin-top:1rem;';
+        if (result.has_prev) {
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '← Newer';
+            prevBtn.addEventListener('click', () => { location.hash = '#/podcast/' + subId + '?page=' + (page - 1); });
+            nav.appendChild(prevBtn);
+        }
+        if (result.has_next) {
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = 'Older →';
+            nextBtn.addEventListener('click', () => { location.hash = '#/podcast/' + subId + '?page=' + (page + 1); });
+            nav.appendChild(nextBtn);
+        }
+        if (nav.children.length) el.appendChild(nav);
     } catch (err) {
         showError(el, err.message);
     }
