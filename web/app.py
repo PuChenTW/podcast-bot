@@ -11,8 +11,9 @@ from web.routers import episodes, jobs, subscriptions
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.init_db()
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise RuntimeError("Missing required env var: GEMINI_API_KEY")
+    for var in ("GEMINI_API_KEY", "WEB_USER_TELEGRAM_ID"):
+        if not os.environ.get(var):
+            raise RuntimeError(f"Missing required env var: {var}")
     yield
 
 

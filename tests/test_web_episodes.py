@@ -59,11 +59,22 @@ async def test_episode_detail(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_episode_detail_not_found(tmp_path, monkeypatch):
+    # User has a subscription to the podcast but the episode guid doesn't exist → 404
+    sub_id, podcast_id, guid = await _setup_episode(tmp_path, monkeypatch)
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get(f"/api/podcasts/{podcast_id}/episodes/no-such-guid/detail")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_episode_detail_no_subscription_returns_403(tmp_path, monkeypatch):
+    # User has no subscription to the podcast → 403
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test3.db"))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "8888")
     await db.init_db()
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get("/api/podcasts/fakepod/episodes/fakeguid/detail")
-    assert resp.status_code == 404
+        resp = await c.get("/api/podcasts/unsubscribed-pod/episodes/any-guid/detail")
+    assert resp.status_code == 403
