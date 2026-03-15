@@ -9,7 +9,7 @@ from telegram.ext import Application
 from bot import database as db
 from bot.ai.corrector import correct_transcript
 from bot.ai.summarizer import summarize_episode
-from bot.config import settings
+from bot.config import get_settings
 from bot.feed import fetch_new_episodes
 from bot.formatting import format_summary
 
@@ -23,7 +23,7 @@ async def _process_episode(bot, sub, episode, chat_id: int, corrector) -> None:
         summary = await summarize_episode(
             episode.title,
             episode.content,
-            settings.gemini_model,
+            get_settings().gemini_model,
             custom_prompt=sub.custom_prompt,
         )
         text = format_summary(sub.podcast_title, episode.title, summary)
@@ -50,7 +50,7 @@ async def poll_all_feeds(app: Application) -> None:
     subscriptions = await db.get_all_subscriptions()
 
     # Pre-bind the AI model to the corrector callback
-    corrector = partial(correct_transcript, settings.gemini_model)
+    corrector = partial(correct_transcript, get_settings().gemini_model)
 
     for sub in subscriptions:
         try:
@@ -79,12 +79,12 @@ async def start_scheduler(app: Application) -> None:
     await _scheduler.__aenter__()
     await _scheduler.add_schedule(
         poll_all_feeds,
-        IntervalTrigger(seconds=settings.poll_interval_seconds),
+        IntervalTrigger(seconds=get_settings().poll_interval_seconds),
         kwargs={"app": app},
         id="poll_feeds",
     )
     await _scheduler.start_in_background()
-    logger.info("Scheduler started, interval=%ds", settings.poll_interval_seconds)
+    logger.info("Scheduler started, interval=%ds", get_settings().poll_interval_seconds)
 
 
 async def stop_scheduler() -> None:

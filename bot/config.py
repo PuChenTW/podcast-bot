@@ -54,4 +54,11 @@ class Settings:
         )
 
 
-settings = Settings.from_env()
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings.from_env()
+    return _settings

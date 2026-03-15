@@ -13,7 +13,7 @@ from telegram.ext import (
 
 from bot import database as db
 from bot.ai.prompt_engineer import generate_prompt_from_description, refine_prompt
-from bot.config import settings
+from bot.config import get_settings
 from bot.handlers.callbacks import SetpromptActionCallback, SetpromptPodCallback
 from bot.i18n import gettext
 
@@ -257,7 +257,7 @@ async def setprompt_refine_apply(update: Update, context: ContextTypes.DEFAULT_T
         return ConversationHandler.END
 
     msg = await update.message.reply_text(gettext(lang, "refining"))
-    refined = await refine_prompt(current_prompt, instruction, settings.gemini_model)
+    refined = await refine_prompt(current_prompt, instruction, get_settings().gemini_model)
     context.user_data["setprompt"]["generated_prompt"] = refined
 
     await msg.edit_text(
@@ -328,7 +328,7 @@ async def setprompt_generate_auto(update: Update, context: ContextTypes.DEFAULT_
     context.user_data["setprompt"]["description"] = text
 
     msg = await update.message.reply_text(gettext(lang, "generating"))
-    generated = await generate_prompt_from_description(text, settings.gemini_model)
+    generated = await generate_prompt_from_description(text, get_settings().gemini_model)
     context.user_data["setprompt"]["generated_prompt"] = generated
 
     await msg.edit_text(
@@ -372,7 +372,7 @@ async def setprompt_regen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return ConversationHandler.END
 
     await query.edit_message_text(gettext(lang, "regenerating"))
-    generated = await generate_prompt_from_description(description, settings.gemini_model)
+    generated = await generate_prompt_from_description(description, get_settings().gemini_model)
     context.user_data["setprompt"]["generated_prompt"] = generated
 
     await query.edit_message_text(

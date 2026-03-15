@@ -13,7 +13,7 @@ from telegram.ext import (
 from bot import database as db
 from bot.ai.corrector import correct_transcript
 from bot.ai.summarizer import summarize_episode
-from bot.config import settings
+from bot.config import get_settings
 from bot.feed import fetch_feed_entries
 from bot.formatting import format_summary, send_html
 from bot.handlers.callbacks import (
@@ -90,10 +90,7 @@ async def digest_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
         if not cached:
             await query.edit_message_text(gettext(lang, "rss_unavailable"))
             return ConversationHandler.END
-        entries = [
-            {"title": ep["title"] or "Untitled", "id": ep["episode_guid"], "enclosures": [], "links": [], "summary": ""}
-            for ep in cached
-        ]
+        entries = [{"title": ep["title"] or "Untitled", "id": ep["episode_guid"], "enclosures": [], "links": [], "summary": ""} for ep in cached]
 
     context.user_data["digest_eps"] = [
         {
@@ -174,13 +171,13 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
     try:
-        corrector = partial(correct_transcript, settings.gemini_model)
+        corrector = partial(correct_transcript, get_settings().gemini_model)
         transcriber = context.bot_data["transcriber"]
         content = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], corrector)
         summary = await summarize_episode(
             ep["title"],
             content,
-            settings.gemini_model,
+            get_settings().gemini_model,
             custom_prompt=ep.get("custom_prompt"),
         )
         published_at = ep["entry"].get("published")

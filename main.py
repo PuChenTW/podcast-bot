@@ -6,7 +6,7 @@ from telegram.ext import (
     CommandHandler,
 )
 
-from bot.config import settings
+from bot.config import get_settings
 from bot.database import init_db
 from bot.handlers import (
     chat_conv,
@@ -43,7 +43,7 @@ def _build_transcriber(s) -> Transcriber:
 
 async def post_init(app: Application) -> None:
     await init_db()
-    app.bot_data["transcriber"] = _build_transcriber(settings)
+    app.bot_data["transcriber"] = _build_transcriber(get_settings())
     await start_scheduler(app)
     await app.bot.set_my_commands(
         [
@@ -68,9 +68,9 @@ async def post_shutdown(app: Application) -> None:
 
 def main() -> None:
     # Set Gemini API key for pydantic-ai
-    os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
+    os.environ["GEMINI_API_KEY"] = get_settings().gemini_api_key
 
-    app = Application.builder().token(settings.telegram_bot_token).post_init(post_init).post_shutdown(post_shutdown).build()
+    app = Application.builder().token(get_settings().telegram_bot_token).post_init(post_init).post_shutdown(post_shutdown).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(start_lang_handler)

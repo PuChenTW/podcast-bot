@@ -6,13 +6,13 @@ from functools import wraps
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.config import settings
+from bot.config import get_settings
 
 
 def admin_only(func):
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id != settings.admin_user_id:
+        if update.effective_user.id != get_settings().admin_user_id:
             return
         return await func(update, context)
 
