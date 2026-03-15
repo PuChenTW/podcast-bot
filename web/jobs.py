@@ -1,5 +1,7 @@
+from collections.abc import Coroutine
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from ulid import ULID
 
@@ -31,7 +33,7 @@ def get_job(job_id: str) -> Job | None:
     return _jobs.get(job_id)
 
 
-async def run_job(job_id: str, coro) -> None:
+async def run_job(job_id: str, coro: Coroutine[Any, Any, str | None]) -> None:
     """Execute coro, updating job status. Called via asyncio.create_task."""
     job = _jobs.get(job_id)
     if job is None:

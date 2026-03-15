@@ -1,6 +1,14 @@
 import pytest
 
+import web.jobs as jobs_module
 from web.jobs import JobStatus, create_job, get_job, run_job
+
+
+@pytest.fixture(autouse=True)
+def clear_jobs():
+    jobs_module._jobs.clear()
+    yield
+    jobs_module._jobs.clear()
 
 
 def test_create_and_get_job():
