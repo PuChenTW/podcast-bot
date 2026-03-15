@@ -96,10 +96,21 @@ async def transcript_pod_selected(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(gettext(lang, "sub_not_found"))
         return ConversationHandler.END
 
-    entries = await fetch_feed_entries(sub.rss_url, limit=50)
+    try:
+        entries = await fetch_feed_entries(sub.rss_url, limit=50)
+    except Exception as exc:
+        logger.error("RSS fetch failed for %s: %s", sub.rss_url, exc)
+        entries = []
+
     if not entries:
-        await query.edit_message_text(gettext(lang, "no_episodes_found"))
-        return ConversationHandler.END
+        cached = await db.get_episodes_by_podcast(sub.podcast_id, limit=50)
+        if not cached:
+            await query.edit_message_text(gettext(lang, "rss_unavailable"))
+            return ConversationHandler.END
+        entries = [
+            {"title": ep["title"] or "Untitled", "id": ep["episode_guid"], "enclosures": [], "links": [], "summary": ""}
+            for ep in cached
+        ]
 
     context.user_data["transcript_eps"] = [
         {
