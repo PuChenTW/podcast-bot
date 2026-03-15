@@ -52,10 +52,8 @@ async def init_db() -> None:
             await db.commit()
         if pending:
             logger.info("Applied %d migration(s).", len(pending))
-    # Enable WAL mode for concurrent reads from web + bot processes (idempotent, safe every startup)
-    async with _connect() as db:
+        # Enable WAL mode for concurrent reads from web + bot processes (idempotent, safe every startup)
         await db.execute("PRAGMA journal_mode=WAL")
-        await db.commit()
 
 
 async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
@@ -220,10 +218,15 @@ async def get_episodes_by_podcast_with_summary(user_id: str, podcast_id: str, li
 
 async def update_episode_summary(user_id: str, podcast_id: str, guid: str, summary: str) -> None:
     """Upsert summary for a user's episode. Resolves guid → episode_id first."""
-    episode_id = await get_episode_id(podcast_id, guid)
-    if episode_id is None:
-        raise ValueError(f"Episode not found: podcast_id={podcast_id}, guid={guid}")
     async with _connect() as db:
+        async with db.execute(
+            "SELECT id FROM episodes WHERE podcast_id = ? AND episode_guid = ?",
+            (podcast_id, guid),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            raise ValueError(f"Episode not found: podcast_id={podcast_id}, guid={guid}")
+        episode_id = row[0]
         await db.execute(
             "INSERT INTO user_episodes (id, user_id, episode_id, summary) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, episode_id) DO UPDATE SET summary = excluded.summary",
             (_new_id(), user_id, episode_id, summary),
