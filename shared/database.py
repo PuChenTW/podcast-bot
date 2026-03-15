@@ -52,6 +52,10 @@ async def init_db() -> None:
             await db.commit()
         if pending:
             logger.info("Applied %d migration(s).", len(pending))
+    # Enable WAL mode for concurrent reads from web + bot processes (idempotent, safe every startup)
+    async with _connect() as db:
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.commit()
 
 
 async def get_or_create_user(telegram_user_id: int, chat_id: int) -> str:
@@ -177,12 +181,54 @@ async def get_episodes_by_podcast(podcast_id: str, limit: int = 50) -> list[dict
     """Return cached episodes for a podcast ordered by published_at DESC."""
     async with _connect() as db:
         async with db.execute(
-            "SELECT episode_guid, title, published_at FROM episodes "
-            "WHERE podcast_id = ? ORDER BY published_at DESC LIMIT ?",
+            "SELECT episode_guid, title, published_at FROM episodes WHERE podcast_id = ? ORDER BY published_at DESC LIMIT ?",
             (podcast_id, limit),
         ) as cursor:
             rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+async def get_episode_detail(user_id: str, podcast_id: str, guid: str) -> dict | None:
+    """Return episode fields + user's summary. summary is None if user has no user_episodes row."""
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT e.id, e.title, e.published_at, e.transcript, e.condensed_transcript, ue.summary "
+            "FROM episodes e "
+            "LEFT JOIN user_episodes ue ON ue.episode_id = e.id AND ue.user_id = ? "
+            "WHERE e.podcast_id = ? AND e.episode_guid = ?",
+            (user_id, podcast_id, guid),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def get_episodes_by_podcast_with_summary(user_id: str, podcast_id: str, limit: int = 50) -> list[dict]:
+    """Return episodes for a podcast with has_summary flag for this user."""
+    async with _connect() as db:
+        async with db.execute(
+            "SELECT e.id, e.episode_guid, e.title, e.published_at, "
+            "CASE WHEN ue.summary IS NOT NULL THEN 1 ELSE 0 END AS has_summary "
+            "FROM episodes e "
+            "LEFT JOIN user_episodes ue ON ue.episode_id = e.id AND ue.user_id = ? "
+            "WHERE e.podcast_id = ? "
+            "ORDER BY e.published_at DESC LIMIT ?",
+            (user_id, podcast_id, limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_episode_summary(user_id: str, podcast_id: str, guid: str, summary: str) -> None:
+    """Upsert summary for a user's episode. Resolves guid → episode_id first."""
+    episode_id = await get_episode_id(podcast_id, guid)
+    if episode_id is None:
+        raise ValueError(f"Episode not found: podcast_id={podcast_id}, guid={guid}")
+    async with _connect() as db:
+        await db.execute(
+            "INSERT INTO user_episodes (id, user_id, episode_id, summary) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, episode_id) DO UPDATE SET summary = excluded.summary",
+            (_new_id(), user_id, episode_id, summary),
+        )
+        await db.commit()
 
 
 async def is_episode_seen(user_id: str, podcast_id: str, guid: str) -> bool:
