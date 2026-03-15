@@ -21,6 +21,7 @@ def _fake_settings(monkeypatch):
         chat_model="google-gla:gemini-flash-lite-latest",
         corrector_model="google-gla:gemini-flash-lite-latest",
         prompt_engineer_model="google-gla:gemini-flash-lite-latest",
+        condenser_model="google-gla:gemini-flash-lite-latest",
     )
     monkeypatch.setattr(_config, "_settings", fake)
 

@@ -20,6 +20,7 @@ class Settings:
     chat_model: str
     corrector_model: str
     prompt_engineer_model: str
+    condenser_model: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -60,6 +61,7 @@ class Settings:
             chat_model=os.getenv("CHAT_MODEL", base),
             corrector_model=os.getenv("CORRECTOR_MODEL", base),
             prompt_engineer_model=os.getenv("PROMPT_ENGINEER_MODEL", base),
+            condenser_model=os.getenv("CONDENSER_MODEL", base),
         )
 
 

@@ -9,7 +9,7 @@ _CHAT_SYSTEM_PROMPT = (
     "{context_section}"
     "Respond conversationally. The user's UI language is {lang} but respond in whatever language the user writes in."
 )
-_CHAT_CONTEXT_FULL = "Episode summary:\n{summary}\n\nEpisode transcript (may be truncated):\n{transcript}\n\n"
+_CHAT_CONTEXT_FULL = "Episode summary:\n{summary}\n\nEpisode transcript (condensed if long):\n{transcript}\n\n"
 _CHAT_CONTEXT_SUMMARY_ONLY = "Episode summary:\n{summary}\n\nNote: full transcript unavailable.\n\n"
 _CHAT_CONTEXT_NONE = "Note: no transcript or summary available — discuss based on title.\n\n"
 
