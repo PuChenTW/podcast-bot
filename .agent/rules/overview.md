@@ -64,7 +64,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/handlers/admin.py` | `/reload` command (admin-only); `@admin_only` decorator checks `settings.admin_user_id` |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-tw` |
 | `bot/formatting.py` | Converts Gemini Markdown → Telegram HTML; `format_summary()` and `send_html()` helpers |
-| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes`. ULIDs for IDs |
+| `shared/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes`. ULIDs for IDs |
 | `migrate/` | DB migration package; `python -m migrate [up\|down <version>\|status]` |
 | `migrations/` | SQL migration files: `NNN_up.sql` / `NNN_down.sql` |
 

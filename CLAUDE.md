@@ -48,7 +48,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 |------|------|
 | `main.py` | Entry point: wires DB init, scheduler, Telegram handlers |
 | `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
-| `bot/database.py` | Async SQLite via aiosqlite — see `bot/CLAUDE.md` |
+| `shared/database.py` | Async SQLite via aiosqlite — see `shared/CLAUDE.md` |
 | `bot/feed.py` | RSS parsing, transcript/audio fetching |
 | `bot/scheduler.py` | Polls subscriptions every `POLL_INTERVAL_SECONDS` |
 | `bot/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `bot/ai/CLAUDE.md` |

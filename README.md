@@ -93,7 +93,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/handlers/callbacks.py` | Pydantic models for typed inline-keyboard callback data |
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-TW` |
-| `bot/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes` (ULID primary keys) |
+| `shared/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes` (ULID primary keys) |
 
 ## Content Pipeline
 
