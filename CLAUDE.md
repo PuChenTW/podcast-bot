@@ -18,6 +18,7 @@ cp .env.example .env         # first run: fill in required vars
 uv sync                      # install / sync dependencies
 uv sync --group dev          # include pytest + pytest-asyncio
 uv run python main.py        # run the bot (or: make run)
+make web-run                 # run web UI (uvicorn, port 8000)
 uv add <package>             # add a dependency
 make test                    # run pytest (or: uv run pytest tests/ -v)
 make lint                    # run ruff linter
@@ -48,7 +49,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 |------|------|
 | `main.py` | Entry point: wires DB init, scheduler, Telegram handlers |
 | `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
-| `shared/database.py` | Async SQLite via aiosqlite — see `shared/CLAUDE.md` |
+| `shared/database.py` | Async SQLite via aiosqlite — see `bot/CLAUDE.md` |
 | `bot/feed.py` | RSS parsing, transcript/audio fetching |
 | `bot/scheduler.py` | Polls subscriptions every `POLL_INTERVAL_SECONDS` |
 | `bot/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `bot/ai/CLAUDE.md` |
@@ -58,6 +59,9 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `bot/formatting.py` | Markdown → Telegram HTML conversion |
 | `migrate/` | Migration runner: `python -m migrate [up\|down <version>\|status]` |
 | `migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
+| `web/` | FastAPI web UI: REST API + static frontend for managing subscriptions/episodes — see `web/CLAUDE.md` |
+| `web_main.py` | ASGI entry point: `uvicorn web_main:app` |
+| `shared/database.py` | Async SQLite via aiosqlite |
 
 ## Configuration (`.env`)
 
@@ -76,6 +80,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
 | `ADMIN_USER_ID` | required | Telegram user ID for `/reload` |
+| `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
 
 ## Code Style
 
