@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from core import database as db
 from core import feed as rss
-from core.feed import _parse_published
+from core.feed import parse_published
 from web.auth import get_current_user
 
 router = APIRouter()
@@ -35,7 +35,7 @@ async def create_subscription(body: SubscribeRequest, user_id: str = Depends(get
     for entry in feed.entries:
         guid = entry.get("id") or entry.get("link") or entry.get("title", "")
         if guid:
-            await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=_parse_published(entry))
+            await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=parse_published(entry))
     return sub.model_dump()
 
 

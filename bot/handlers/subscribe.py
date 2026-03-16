@@ -13,7 +13,7 @@ from telegram.ext import (
 from bot.handlers.callbacks import OnboardLangCallback, UnsubCallback
 from bot.i18n import gettext
 from core import database as db
-from core.feed import fetch_feed, parse_podcast_title, resolve_rss_url
+from core.feed import fetch_feed, parse_podcast_title, parse_published, resolve_rss_url
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ async def subscribe_url_received(update: Update, context: ContextTypes.DEFAULT_T
                 podcast_id,
                 guid,
                 title=entry.get("title"),
-                published_at=entry.get("published"),
+                published_at=parse_published(entry),
             )
 
     await msg.edit_text(gettext(lang, "subscribed", title=title))

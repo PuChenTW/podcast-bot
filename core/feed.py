@@ -6,6 +6,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Awaitable, Callable
 
 import feedparser
@@ -30,13 +31,19 @@ MAX_AUDIO_BYTES = 200_000_000  # 200 MB hard cap
 Corrector = Callable[[str, str, str, str], Awaitable[str]]
 
 
-def _parse_published(entry: dict) -> str | None:
+def parse_published(entry: dict) -> str | None:
     """Return ISO 8601 UTC date string from a feedparser entry, or None."""
     parsed = entry.get("published_parsed")
     if parsed:
         return datetime.fromtimestamp(calendar.timegm(parsed), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     raw = entry.get("published")
-    return raw if raw else None
+    if not raw:
+        return None
+    try:
+        dt = parsedate_to_datetime(raw)
+        return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return None
 
 
 @dataclass
@@ -260,7 +267,7 @@ async def _parse_entry(
     return Episode(
         guid=guid,
         title=entry.get("title", "Untitled"),
-        published=_parse_published(entry),
+        published=parse_published(entry),
         content=content,
     )
 

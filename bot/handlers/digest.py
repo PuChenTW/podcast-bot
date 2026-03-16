@@ -20,7 +20,7 @@ from bot.i18n import gettext
 from core import database as db
 from core.ai.corrector import correct_transcript
 from core.ai.summarizer import summarize_episode
-from core.feed import fetch_feed_entries
+from core.feed import fetch_feed_entries, parse_published
 
 logger = logging.getLogger(__name__)
 
@@ -176,13 +176,12 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
             content,
             custom_prompt=ep.get("custom_prompt"),
         )
-        published_at = ep["entry"].get("published")
         await db.mark_episode_seen(
             user_id,
             sub.podcast_id,
             guid,
             title=ep["title"],
-            published_at=published_at,
+            published_at=parse_published(ep["entry"]),
             summary=summary,
             transcript=content,
         )
