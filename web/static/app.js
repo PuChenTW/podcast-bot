@@ -230,7 +230,7 @@ async function renderEpisodeDetail(el, podId, guid) {
         el.insertAdjacentHTML('beforeend', `<h2 class="episode-detail-title">${esc(detail.title || guid)}</h2>`);
 
         // Tabs
-        const tabNames = ['摘要', '逐字稿', '精簡版'];
+        const tabNames = ['摘要', '說明', '逐字稿', '精簡版'];
         const tabBar = document.createElement('div');
         tabBar.className = 'tabs';
         const tabPanels = [];
@@ -269,6 +269,14 @@ async function renderEpisodeDetail(el, podId, guid) {
 
         tabPanels.push(summaryPanel);
         wrapper.appendChild(summaryPanel);
+
+        const descPanel = document.createElement('div');
+        descPanel.className = 'tab-content';
+        descPanel.innerHTML = detail.description
+            ? `<div class="description-content">${esc(detail.description)}</div>`
+            : '<p class="empty-state">無說明。</p>';
+        tabPanels.push(descPanel);
+        wrapper.appendChild(descPanel);
 
         const transcriptPanel = document.createElement('div');
         transcriptPanel.className = 'tab-content';
