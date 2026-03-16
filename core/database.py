@@ -190,7 +190,8 @@ async def get_episode_detail(user_id: str, podcast_id: str, guid: str) -> dict |
     """Return episode fields + user's summary. summary is None if user has no user_episodes row."""
     async with _connect() as db:
         async with db.execute(
-            "SELECT e.id, e.title, e.published_at, e.transcript, e.condensed_transcript, ue.summary "
+            "SELECT e.id, e.title, e.published_at, e.transcript, e.condensed_transcript, "
+            "e.description, ue.summary "
             "FROM episodes e "
             "LEFT JOIN user_episodes ue ON ue.episode_id = e.id AND ue.user_id = ? "
             "WHERE e.podcast_id = ? AND e.episode_guid = ?",
