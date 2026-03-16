@@ -49,6 +49,25 @@ async def delete_subscription(sub_id: str, user_id: str = Depends(get_current_us
     await db.remove_subscription_by_id(sub_id)
 
 
+@router.post("/subscriptions/{sub_id}/refresh")
+async def refresh_subscription(sub_id: str, user_id: str = Depends(get_current_user)):
+    sub = await db.get_subscription_by_id(sub_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    feed = await rss.fetch_feed(sub.rss_url)
+    new_count = 0
+    for entry in feed.entries:
+        guid = entry.get("id") or entry.get("link") or entry.get("title", "")
+        if not guid:
+            continue
+        if not await db.is_episode_seen(user_id, sub.podcast_id, guid):
+            new_count += 1
+        await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=parse_published(entry))
+    return {"new_count": new_count}
+
+
 @router.put("/subscriptions/{sub_id}/prompt")
 async def update_prompt(sub_id: str, body: PromptRequest, user_id: str = Depends(get_current_user)):
     sub = await db.get_subscription_by_id(sub_id)

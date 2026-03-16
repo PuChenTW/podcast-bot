@@ -28,6 +28,7 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | POST | `/api/subscriptions` | Subscribe to RSS URL (marks existing episodes seen — no backlog flood) |
 | DELETE | `/api/subscriptions/{sub_id}` | Unsubscribe |
 | PUT | `/api/subscriptions/{sub_id}/prompt` | Update custom summarization prompt |
+| POST | `/api/subscriptions/{sub_id}/refresh` | Fetch RSS, upsert new episodes, return `{new_count}` |
 | GET | `/api/subscriptions/{sub_id}/episodes` | Paginated episode list (`?page=N`, page size 20) |
 | GET | `/api/podcasts/{podcast_id}/episodes/{guid}/detail` | Full episode detail (transcript + summary) |
 | POST | `/api/podcasts/{podcast_id}/episodes/{guid}/regenerate` | Queue summary regeneration → returns `{job_id}` |
@@ -50,6 +51,12 @@ Required env vars (in addition to `GEMINI_API_KEY`):
 `get_current_user(request) → user_id (ULID)` is an injectable FastAPI dependency. Phase 1 always resolves to `WEB_USER_TELEGRAM_ID`. Signature must stay `Request → str` for the planned Phase 2 Telegram Login Widget upgrade.
 
 Web-originated users are created with `chat_id=0` — a sentinel that causes the bot scheduler to skip Telegram delivery for those rows.
+
+## New Endpoint Pattern
+
+All `{sub_id}` endpoints: `get_subscription_by_id` → 404 if None → 403 if `sub.user_id != user_id` → do work.
+
+`db.mark_episode_seen` is an UPSERT — safe to call unconditionally, no duplicates. Use `db.is_episode_seen` to check existence beforehand if you need to count new entries.
 
 ## Job Store
 

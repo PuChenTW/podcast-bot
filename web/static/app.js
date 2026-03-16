@@ -148,6 +148,24 @@ async function renderEpisodeList(el, subId, page = 0) {
         promptDetails.appendChild(saveBtn);
         el.appendChild(promptDetails);
 
+        // Refresh button
+        const refreshBtn = document.createElement('button');
+        refreshBtn.className = 'secondary';
+        refreshBtn.textContent = '重新整理';
+        refreshBtn.style.marginBottom = '1rem';
+        refreshBtn.addEventListener('click', async () => {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '更新中…';
+            try {
+                const res = await api('/subscriptions/' + subId + '/refresh', { method: 'POST' });
+                renderEpisodeList(el, subId, page);
+            } catch (err) {
+                refreshBtn.textContent = '錯誤：' + err.message;
+                refreshBtn.disabled = false;
+            }
+        });
+        el.appendChild(refreshBtn);
+
         if (episodes.length === 0 && page === 0) {
             el.insertAdjacentHTML('beforeend', '<div class="empty-state">尚無集數，Bot 每 6 小時自動抓取。</div>');
             return;
