@@ -3,11 +3,26 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 
 from core import database as db
+from core import feed as feed_module
 from core.ai import summarizer
+from core.config import get_settings
+from core.transcribers import AudioPipeline, GroqTranscriber, TranscriberPipeline, WhisperTranscriber
 from web import jobs as job_store
 from web.auth import get_current_user
 
 router = APIRouter()
+
+
+def _build_transcriber():
+    s = get_settings()
+    if s.transcriber_backend == "groq":
+        return TranscriberPipeline(
+            [
+                AudioPipeline(GroqTranscriber(s.groq_api_key)),
+                AudioPipeline(WhisperTranscriber(s.whisper_model)),
+            ]
+        )
+    return AudioPipeline(WhisperTranscriber(s.whisper_model))
 
 
 @router.post("/podcasts/{podcast_id}/episodes/{guid}/regenerate", status_code=202)
@@ -25,9 +40,24 @@ async def regenerate_summary(podcast_id: str, guid: str, user_id: str = Depends(
     job = job_store.create_job()
 
     async def _task():
+        transcript = detail["transcript"]
+        if not transcript:
+            # No transcript stored — fetch RSS entry and transcribe
+            podcast = await db.get_podcast(podcast_id)
+            feed = await feed_module.fetch_feed(podcast["rss_url"])
+            entry = next(
+                (e for e in feed.entries if (e.get("id") or e.get("link") or e.get("title", "")) == guid),
+                None,
+            )
+            if entry:
+                transcriber = _build_transcriber()
+                transcript = await feed_module.get_episode_content(entry, transcriber, podcast.get("title", ""))
+                if transcript:
+                    await db.update_episode_transcript(podcast_id, guid, transcript)
+
         summary = await summarizer.summarize_episode(
             detail["title"] or guid,
-            detail["transcript"] or "",
+            transcript or "",
             sub.custom_prompt,
         )
         await db.update_episode_summary(user_id, podcast_id, guid, summary)
