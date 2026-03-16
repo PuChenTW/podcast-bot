@@ -51,7 +51,8 @@ class Episode:
     guid: str
     title: str
     published: str | None
-    content: str  # transcript text or description
+    content: str  # transcript text or description (used for summarization)
+    description: str  # raw RSS description/show notes
 
 
 def _strip_timing_markers(text: str) -> str:
@@ -264,11 +265,13 @@ async def _parse_entry(
 ) -> Episode:
     guid = entry.get("id") or entry.get("link") or entry.get("title", "")
     content = await get_episode_content(entry, transcriber, podcast_title, corrector)
+    description = entry.get("summary") or entry.get("description") or ""
     return Episode(
         guid=guid,
         title=entry.get("title", "Untitled"),
         published=parse_published(entry),
         content=content,
+        description=description,
     )
 
 

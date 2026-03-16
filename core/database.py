@@ -251,16 +251,18 @@ async def mark_episode_seen(
     published_at: str | None = None,
     summary: str | None = None,
     transcript: str | None = None,
+    description: str | None = None,
 ) -> None:
     async with _connect() as db:
         await db.execute(
-            "INSERT INTO episodes (id, podcast_id, episode_guid, title, published_at, transcript) "
-            "VALUES (?, ?, ?, ?, ?, ?) "
+            "INSERT INTO episodes (id, podcast_id, episode_guid, title, published_at, transcript, description) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(podcast_id, episode_guid) DO UPDATE SET "
             "  transcript = COALESCE(excluded.transcript, transcript), "
             "  title = COALESCE(excluded.title, title), "
-            "  published_at = COALESCE(excluded.published_at, published_at)",
-            (_new_id(), podcast_id, guid, title, published_at, transcript),
+            "  published_at = COALESCE(excluded.published_at, published_at), "
+            "  description = COALESCE(excluded.description, description)",
+            (_new_id(), podcast_id, guid, title, published_at, transcript, description),
         )
         async with db.execute(
             "SELECT id FROM episodes WHERE podcast_id = ? AND episode_guid = ?",

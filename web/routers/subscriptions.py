@@ -64,7 +64,15 @@ async def refresh_subscription(sub_id: str, user_id: str = Depends(get_current_u
             continue
         if not await db.is_episode_seen(user_id, sub.podcast_id, guid):
             new_count += 1
-        await db.mark_episode_seen(user_id, sub.podcast_id, guid, title=entry.get("title"), published_at=parse_published(entry))
+        description = entry.get("summary") or entry.get("description") or ""
+        await db.mark_episode_seen(
+            user_id,
+            sub.podcast_id,
+            guid,
+            title=entry.get("title"),
+            published_at=parse_published(entry),
+            description=description or None,
+        )
     return {"new_count": new_count}
 
 

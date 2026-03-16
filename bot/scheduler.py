@@ -34,6 +34,7 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             published_at=episode.published,
             summary=summary,
             transcript=episode.content,
+            description=episode.description,
         )
     except Exception as exc:
         logger.error("Error processing episode %s: %s", episode.title, exc)
