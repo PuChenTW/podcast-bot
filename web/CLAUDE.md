@@ -25,7 +25,7 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/subscriptions` | List user's subscriptions |
-| POST | `/api/subscriptions` | Subscribe to RSS URL (marks existing episodes seen — no backlog flood) |
+| POST | `/api/subscriptions` | Subscribe to RSS URL (marks existing episodes seen — no backlog flood); returns 422 if URL is not a valid RSS feed (`feed.bozo and not feed.entries`) |
 | DELETE | `/api/subscriptions/{sub_id}` | Unsubscribe |
 | PUT | `/api/subscriptions/{sub_id}/prompt` | Update custom summarization prompt |
 | POST | `/api/subscriptions/{sub_id}/refresh` | Fetch RSS, upsert new episodes, return `{new_count}` |
@@ -61,6 +61,10 @@ All `{sub_id}` endpoints: `get_subscription_by_id` → 404 if None → 403 if `s
 ## Job Store
 
 `web/jobs.py` is an in-memory store. Jobs are lost on restart. Only used for `regenerate` which is fire-and-forget; clients poll `/api/jobs/{id}` until `done` or `error`.
+
+## Frontend DOM Updates
+
+`app.js` does in-place DOM mutations for subscribe/unsubscribe — no `location.hash` reload. Subscribe success appends a new card directly to the grid (or creates the grid if first subscription); unsubscribe removes the card and shows empty-state if the grid is now empty. This avoids the hashchange no-op when already on `#/`.
 
 ## RSS Description
 

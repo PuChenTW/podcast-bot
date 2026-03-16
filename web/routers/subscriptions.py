@@ -27,6 +27,8 @@ async def list_subscriptions(user_id: str = Depends(get_current_user)):
 async def create_subscription(body: SubscribeRequest, user_id: str = Depends(get_current_user)):
     rss_url = await rss.resolve_rss_url(body.rss_url)
     feed = await rss.fetch_feed(rss_url)
+    if feed.bozo and not feed.entries:
+        raise HTTPException(status_code=422, detail="無效的 RSS 網址，請確認後再試。")
     title = getattr(feed.feed, "title", rss_url)
     sub_id = await db.add_subscription(user_id, title, rss_url)
     sub = await db.get_subscription_by_id(sub_id)

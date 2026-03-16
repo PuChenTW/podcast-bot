@@ -39,6 +39,35 @@ window.addEventListener('hashchange', route);
 window.addEventListener('load', route);
 
 // ---- Home: subscribed podcasts + subscribe form ----
+function buildCard(sub, grid, el) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h3>${esc(sub.podcast_title)}</h3><p class="subtitle">${esc(sub.rss_url)}</p>`;
+    card.addEventListener('click', () => { location.hash = '#/podcast/' + sub.id; });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger';
+    delBtn.textContent = '退訂';
+    delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('確定退訂 ' + sub.podcast_title + '？')) return;
+        try {
+            await api('/subscriptions/' + sub.id, { method: 'DELETE' });
+            card.remove();
+            if (grid.children.length === 0) {
+                const label = grid.previousElementSibling;
+                if (label && label.classList.contains('section-label')) label.remove();
+                grid.remove();
+                el.insertAdjacentHTML('beforeend', '<div class="empty-state">尚無訂閱，請在上方新增。</div>');
+            }
+        } catch (err) {
+            alert('退訂失敗：' + err.message);
+        }
+    });
+    card.appendChild(delBtn);
+    return card;
+}
+
 async function renderHome(el) {
     el.innerHTML = '<p class="spinner">Loading…</p>';
     setNavCrumb('');
@@ -58,14 +87,32 @@ async function renderHome(el) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = form.querySelector('button');
-            const url = document.getElementById('rss-url').value;
+            const input = document.getElementById('rss-url');
             btn.disabled = true;
             btn.textContent = '訂閱中…';
             try {
-                await api('/subscriptions', { method: 'POST', body: JSON.stringify({ rss_url: url }) });
-                location.hash = '#/';
+                const sub = await api('/subscriptions', { method: 'POST', body: JSON.stringify({ rss_url: input.value }) });
+                let grid = el.querySelector('.card-grid');
+                if (!grid) {
+                    const emptyState = el.querySelector('.empty-state');
+                    if (emptyState) emptyState.remove();
+                    el.insertAdjacentHTML('beforeend', '<div class="section-label">我的訂閱</div>');
+                    grid = document.createElement('div');
+                    grid.className = 'card-grid';
+                    el.appendChild(grid);
+                }
+                grid.appendChild(buildCard(sub, grid, el));
+                input.value = '';
+                const prevErr = panel.querySelector('.error-msg');
+                if (prevErr) prevErr.remove();
             } catch (err) {
-                showError(el, err.message);
+                let errDiv = panel.querySelector('.error-msg');
+                if (!errDiv) {
+                    errDiv = document.createElement('p');
+                    errDiv.className = 'error-msg';
+                    panel.appendChild(errDiv);
+                }
+                errDiv.textContent = err.message;
             } finally {
                 btn.disabled = false;
                 btn.textContent = '訂閱';
@@ -83,22 +130,7 @@ async function renderHome(el) {
         const grid = document.createElement('div');
         grid.className = 'card-grid';
         for (const sub of subs) {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `<h3>${esc(sub.podcast_title)}</h3><p class="subtitle">${esc(sub.rss_url)}</p>`;
-            card.addEventListener('click', () => { location.hash = '#/podcast/' + sub.id; });
-
-            const delBtn = document.createElement('button');
-            delBtn.className = 'danger';
-            delBtn.textContent = '退訂';
-            delBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (!confirm('確定退訂 ' + sub.podcast_title + '？')) return;
-                await api('/subscriptions/' + sub.id, { method: 'DELETE' });
-                location.hash = '#/';
-            });
-            card.appendChild(delBtn);
-            grid.appendChild(card);
+            grid.appendChild(buildCard(sub, grid, el));
         }
         el.appendChild(grid);
     } catch (err) {
