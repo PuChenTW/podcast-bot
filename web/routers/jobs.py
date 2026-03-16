@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from core import database as db
 from core import feed as feed_module
 from core.ai import summarizer
+from core.ai.corrector import correct_transcript
 from core.config import get_settings
 from core.transcribers import AudioPipeline, GroqTranscriber, TranscriberPipeline, WhisperTranscriber
 from web import jobs as job_store
@@ -51,7 +52,7 @@ async def regenerate_summary(podcast_id: str, guid: str, user_id: str = Depends(
             )
             if entry:
                 transcriber = _build_transcriber()
-                transcript = await feed_module.get_episode_content(entry, transcriber, podcast.get("title", ""))
+                transcript = await feed_module.get_episode_content(entry, transcriber, podcast.get("title", ""), corrector=correct_transcript)
                 if transcript:
                     await db.update_episode_transcript(podcast_id, guid, transcript)
 

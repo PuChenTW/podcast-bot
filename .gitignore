@@ -2,7 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
-*.db
+podcast_bot.db*
 .python-version
 .worktrees/
 .vscode

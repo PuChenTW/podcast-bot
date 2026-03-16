@@ -4,7 +4,7 @@
 users(id ULID, telegram_user_id, chat_id, language, created_at)
 podcasts(id ULID, rss_url UNIQUE, title, created_at)
 subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, created_at)
-episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript)
+episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript, description)
   UNIQUE(podcast_id, episode_guid)  -- shared across users
 user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified_at)
   UNIQUE(user_id, episode_id)  -- per-user delivery record
@@ -28,6 +28,8 @@ monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))
 | `get_episode_transcript` | `(podcast_id, guid)` | |
 | `get_episode_summary` | `(user_id, episode_id)` | `episode_id` is the ULID from `episodes` |
 | `get_episode_id` | `(podcast_id, guid)` | Resolves guid → ULID |
+| `get_podcast` | `(podcast_id)` | Returns podcast row dict or None |
+| `update_episode_transcript` | `(podcast_id, guid, transcript)` | Writes transcript to `episodes` row |
 
 `podcast_id` comes from `Subscription.podcast_id`, populated via JOIN in all `get_subscription*` calls.
 

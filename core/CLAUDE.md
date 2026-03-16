@@ -32,6 +32,8 @@ monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))
 | `get_episode_transcript` | `(podcast_id, guid)` | |
 | `get_episode_summary` | `(user_id, episode_id)` | `episode_id` is the ULID from `episodes` |
 | `get_episode_id` | `(podcast_id, guid)` | Resolves guid → ULID |
+| `get_podcast` | `(podcast_id)` | Returns podcast row dict or None |
+| `update_episode_transcript` | `(podcast_id, guid, transcript)` | Writes transcript to `episodes` row |
 
 ## AI module pattern
 

@@ -113,11 +113,13 @@ nav .nav-crumb { font-size: 0.875rem; font-weight: 600; color: #0f172a; }
 .tabs {
     display: flex;
     align-items: center;
+    width: 100%;
     border-bottom: 1px solid #f1f5f9;
     margin-bottom: 1rem;
     background: white;
     border-radius: 10px 10px 0 0;
-    padding: 0 0.5rem;
+    padding: 0 0 0 0.5rem;
+    box-sizing: border-box;
 }
 .tab-btn {
     background: none;
@@ -134,6 +136,23 @@ nav .nav-crumb { font-size: 0.875rem; font-weight: 600; color: #0f172a; }
 }
 .tab-btn:hover { color: #0f172a; background: none; }
 .tab-btn.active { border-bottom-color: #0d9488; color: #0d9488; }
+
+.regen-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    border-left: 1px solid #e2e8f0;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0.75rem 1rem;
+    font-size: 1.1rem;
+    color: #94a3b8;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.regen-btn:hover { color: #0d9488; background: none; }
+.regen-btn:disabled { opacity: 0.4; cursor: default; }
 
 .tab-content { display: none; }
 .tab-content.active { display: block; }

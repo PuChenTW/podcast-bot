@@ -242,10 +242,10 @@ async function renderEpisodeDetail(el, podId, guid) {
             ? marked.parse(detail.summary)
             : '<p class="empty-state">尚無摘要。</p>';
 
-        // Regenerate button — injected into tab bar at right
         const regenBtn = document.createElement('button');
-        regenBtn.textContent = '重新生成摘要';
-        regenBtn.style.marginLeft = 'auto';
+        regenBtn.textContent = '↺';
+        regenBtn.title = '重新生成摘要';
+        regenBtn.className = 'regen-btn';
         regenBtn.addEventListener('click', () => startRegenerate(podId, guid, summaryPanel, regenBtn));
 
         tabNames.forEach((name, i) => {
@@ -273,7 +273,7 @@ async function renderEpisodeDetail(el, podId, guid) {
         const descPanel = document.createElement('div');
         descPanel.className = 'tab-content';
         descPanel.innerHTML = detail.description
-            ? `<div class="description-content">${esc(detail.description)}</div>`
+            ? `<div class="description-content">${detail.description}</div>`
             : '<p class="empty-state">無說明。</p>';
         tabPanels.push(descPanel);
         wrapper.appendChild(descPanel);
@@ -302,25 +302,26 @@ async function renderEpisodeDetail(el, podId, guid) {
 
 async function startRegenerate(podId, guid, summaryPanel, regenBtn) {
     regenBtn.disabled = true;
-    regenBtn.textContent = 'Regenerating…';
+    regenBtn.textContent = '↻';
+    summaryPanel.innerHTML = '<p class="empty-state">重新生成中，請稍候…</p>';
     try {
         const { job_id } = await api('/podcasts/' + podId + '/episodes/' + encodeURIComponent(guid) + '/regenerate', { method: 'POST' });
         pollJob(job_id,
             (result) => {
                 summaryPanel.innerHTML = marked.parse(result);
                 regenBtn.disabled = false;
-                regenBtn.textContent = 'Regenerate summary';
+                regenBtn.textContent = '↺';
             },
             (errMsg) => {
-                summaryPanel.insertAdjacentHTML('afterbegin', `<p class="error-msg">Error: ${esc(errMsg)}</p>`);
+                summaryPanel.innerHTML = `<p class="error-msg">Error: ${esc(errMsg)}</p>`;
                 regenBtn.disabled = false;
-                regenBtn.textContent = 'Regenerate summary';
+                regenBtn.textContent = '↺';
             }
         );
     } catch (err) {
-        summaryPanel.insertAdjacentHTML('afterbegin', `<p class="error-msg">Error: ${esc(err.message)}</p>`);
+        summaryPanel.innerHTML = `<p class="error-msg">Error: ${esc(err.message)}</p>`;
         regenBtn.disabled = false;
-        regenBtn.textContent = 'Regenerate summary';
+        regenBtn.textContent = '↺';
     }
 }
 

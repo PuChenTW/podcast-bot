@@ -61,3 +61,7 @@ All `{sub_id}` endpoints: `get_subscription_by_id` → 404 if None → 403 if `s
 ## Job Store
 
 `web/jobs.py` is an in-memory store. Jobs are lost on restart. Only used for `regenerate` which is fire-and-forget; clients poll `/api/jobs/{id}` until `done` or `error`.
+
+## RSS Description
+
+`entry.get("summary")` is feedparser's field for RSS `<description>` content. It often contains HTML markup — render with `innerHTML`, not `textContent`/escaped.

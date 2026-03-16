@@ -88,3 +88,14 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 ## Design Philosophy
 
 High cohesion: each workflow is fully self-contained in its own module. `main.py` only wires things together — one handler registration per feature, no scattered logic.
+
+## SQLite Recovery
+
+If DB is corrupted (`database disk image is malformed`):
+```bash
+cp podcast_bot.db podcast_bot.db.bak
+sqlite3 podcast_bot.db ".recover" | sqlite3 podcast_bot_recovered.db
+# Unattributable pages land in lost_and_found — episodes rows are recoverable from there
+# Then swap: mv podcast_bot.db podcast_bot.db.corrupted && mv podcast_bot_recovered.db podcast_bot.db
+```
+WAL corruption risk: always stop the bot with SIGTERM (not SIGKILL) so SQLite can checkpoint.
