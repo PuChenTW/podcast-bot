@@ -1,5 +1,5 @@
-from bot.ai._agent import _get_agent
-from bot.config import get_settings
+from core.ai._agent import _get_agent
+from core.config import get_settings
 
 _DEFAULT_SYSTEM_PROMPT = (
     "You are a podcast summarizer. Given transcript or description text from a podcast episode,"

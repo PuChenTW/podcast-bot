@@ -2,8 +2,8 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from bot.ai import summarizer
-from shared import database as db
+from core import database as db
+from core.ai import summarizer
 from web import jobs as job_store
 from web.auth import get_current_user
 

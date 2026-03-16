@@ -1,6 +1,6 @@
 import logging
 
-from bot.transcribers.base import Transcriber
+from core.transcribers.base import Transcriber
 
 logger = logging.getLogger(__name__)
 

@@ -48,12 +48,12 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | Path | Role |
 |------|------|
 | `main.py` | Entry point: wires DB init, scheduler, Telegram handlers |
-| `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
-| `shared/database.py` | Async SQLite via aiosqlite — see `bot/CLAUDE.md` |
-| `bot/feed.py` | RSS parsing, transcript/audio fetching |
+| `core/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
+| `core/database.py` | Async SQLite via aiosqlite — see `core/CLAUDE.md` |
+| `core/feed.py` | RSS parsing, transcript/audio fetching |
+| `core/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `core/CLAUDE.md` |
+| `core/transcribers/` | Whisper + Groq backends, fallback pipeline — see `core/CLAUDE.md` |
 | `bot/scheduler.py` | Polls subscriptions every `POLL_INTERVAL_SECONDS` |
-| `bot/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `bot/ai/CLAUDE.md` |
-| `bot/transcribers/` | Whisper + Groq backends, fallback pipeline — see `bot/transcribers/CLAUDE.md` |
 | `bot/handlers/` | Telegram command handlers — see `bot/handlers/CLAUDE.md` |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)`; unknown lang falls back to `zh-TW` |
 | `bot/formatting.py` | Markdown → Telegram HTML conversion |
@@ -61,7 +61,6 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
 | `web/` | FastAPI web UI: REST API + static frontend for managing subscriptions/episodes — see `web/CLAUDE.md` |
 | `web_main.py` | ASGI entry point: `uvicorn web_main:app` |
-| `shared/database.py` | Async SQLite via aiosqlite |
 
 ## Configuration (`.env`)
 

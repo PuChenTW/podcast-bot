@@ -6,7 +6,7 @@ from functools import wraps
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.config import get_settings
+from core.config import get_settings
 
 
 def admin_only(func):

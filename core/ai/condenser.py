@@ -1,5 +1,5 @@
-from bot.ai._agent import _get_agent
-from bot.config import get_settings
+from core.ai._agent import _get_agent
+from core.config import get_settings
 
 _CONDENSER_SYSTEM_PROMPT = (
     "You are a transcript condenser. Given a full podcast episode transcript, produce a condensed version"

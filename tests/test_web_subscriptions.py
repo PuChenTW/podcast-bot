@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from shared import database as db
+from core import database as db
 from web.app import create_app
 
 
@@ -32,7 +32,7 @@ async def test_post_subscription(tmp_path, monkeypatch):
     mock_feed.feed.title = "Test Podcast"
     mock_feed.entries = []
 
-    with patch("bot.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://example.com/feed.rss"), patch("bot.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
+    with patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://example.com/feed.rss"), patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             resp = await c.post("/api/subscriptions", json={"rss_url": "http://example.com/feed.rss"})
     assert resp.status_code == 201
@@ -53,7 +53,7 @@ async def test_delete_subscription_success(tmp_path, monkeypatch):
     mock_feed.feed.title = "Del Test"
     mock_feed.entries = []
 
-    with patch("bot.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://del.com/feed.rss"), patch("bot.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
+    with patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://del.com/feed.rss"), patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             create_resp = await c.post("/api/subscriptions", json={"rss_url": "http://del.com/feed.rss"})
             sub_id = create_resp.json()["id"]
@@ -85,7 +85,7 @@ async def test_put_prompt(tmp_path, monkeypatch):
     mock_feed.feed.title = "Prompt Test"
     mock_feed.entries = []
 
-    with patch("bot.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://prompt.com/feed.rss"), patch("bot.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
+    with patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://prompt.com/feed.rss"), patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             create_resp = await c.post("/api/subscriptions", json={"rss_url": "http://prompt.com/feed.rss"})
             sub_id = create_resp.json()["id"]

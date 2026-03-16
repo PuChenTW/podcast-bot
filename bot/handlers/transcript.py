@@ -11,7 +11,6 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from bot.feed import fetch_feed_entries
 from bot.handlers.callbacks import (
     TranscriptEpCallback,
     TranscriptNavCallback,
@@ -19,7 +18,8 @@ from bot.handlers.callbacks import (
 )
 from bot.handlers.episode_picker import build_episode_keyboard, get_or_fetch_transcript
 from bot.i18n import gettext
-from shared import database as db
+from core import database as db
+from core.feed import fetch_feed_entries
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ Schema source of truth is `migrations/NNN_up.sql`. `init_db()` applies pending m
 
 ## aiosqlite testing
 
-Use a temp file path, NOT `:memory:`. Each `aiosqlite.connect()` call opens a new independent connection; `:memory:` gives each call a fresh empty database. Tests must patch `DB_PATH`:
+Use a temp file path, NOT `:memory:`. Each `aiosqlite.connect()` call opens a new independent connection; `:memory:` gives each call a fresh empty database. Tests must patch `DB_PATH` in `core.database`:
 ```python
 monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))
 ```
@@ -49,4 +49,4 @@ The scheduler marks an episode as seen even when processing fails. This is inten
 
 ## Settings in tests
 
-`tests/conftest.py` manually constructs a `Settings(...)` instance. Any new field added to `Settings` must also be added to the fixture — it will fail at collection time otherwise.
+`tests/conftest.py` manually constructs a `Settings(...)` instance from `core.config`. Any new field added to `Settings` must also be added to the fixture — it will fail at collection time otherwise.

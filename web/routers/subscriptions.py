@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from bot import feed as rss
-from bot.feed import _parse_published
-from shared import database as db
+from core import database as db
+from core import feed as rss
+from core.feed import _parse_published
 from web.auth import get_current_user
 
 router = APIRouter()

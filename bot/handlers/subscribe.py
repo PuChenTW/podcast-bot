@@ -10,10 +10,10 @@ from telegram.ext import (
     filters,
 )
 
-from bot.feed import fetch_feed, parse_podcast_title, resolve_rss_url
 from bot.handlers.callbacks import OnboardLangCallback, UnsubCallback
 from bot.i18n import gettext
-from shared import database as db
+from core import database as db
+from core.feed import fetch_feed, parse_podcast_title, resolve_rss_url
 
 logger = logging.getLogger(__name__)
 

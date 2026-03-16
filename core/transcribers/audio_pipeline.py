@@ -5,7 +5,7 @@ import os
 import subprocess
 import tempfile
 
-from bot.transcribers.base import ChunkTranscriber
+from core.transcribers.base import ChunkTranscriber
 
 logger = logging.getLogger(__name__)
 

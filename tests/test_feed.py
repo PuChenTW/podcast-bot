@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bot.feed import (
+from core.feed import (
     MAX_TRANSCRIPT_CHARS,
     _extract_audio_url,
     _resolve_transcript_url,
@@ -106,30 +106,30 @@ def _make_stream_mock(content: bytes):
 
 class TestFetchTranscriptUrl:
     async def test_returns_text_content(self):
-        from bot.feed import _fetch_transcript_url
+        from core.feed import _fetch_transcript_url
 
         mock_client = _make_stream_mock(b"transcript content")
-        with patch("bot.feed.httpx.AsyncClient", return_value=mock_client):
+        with patch("core.feed.httpx.AsyncClient", return_value=mock_client):
             result = await _fetch_transcript_url("http://example.com/t.txt")
         assert result == "transcript content"
 
     async def test_strips_vtt_markers(self):
-        from bot.feed import _fetch_transcript_url
+        from core.feed import _fetch_transcript_url
 
         vtt_content = b"00:00:01.000 --> 00:00:02.000\nHello world"
         mock_client = _make_stream_mock(vtt_content)
-        with patch("bot.feed.httpx.AsyncClient", return_value=mock_client):
+        with patch("core.feed.httpx.AsyncClient", return_value=mock_client):
             result = await _fetch_transcript_url("http://example.com/t.vtt")
         assert "00:00:01.000 --> 00:00:02.000" not in result
         assert "Hello world" in result
 
     async def test_returns_none_on_http_error(self):
-        from bot.feed import _fetch_transcript_url
+        from core.feed import _fetch_transcript_url
 
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(side_effect=Exception("network error"))
         mock_client.__aexit__ = AsyncMock(return_value=False)
-        with patch("bot.feed.httpx.AsyncClient", return_value=mock_client):
+        with patch("core.feed.httpx.AsyncClient", return_value=mock_client):
             result = await _fetch_transcript_url("http://example.com/t.txt")
         assert result is None
 
@@ -144,7 +144,7 @@ class TestGetEpisodeContent:
         corrector = AsyncMock(return_value="corrected")
         transcriber = AsyncMock()
         transcriber.transcribe = AsyncMock(return_value=None)
-        with patch("bot.feed._fetch_transcript_url", AsyncMock(return_value="raw transcript")):
+        with patch("core.feed._fetch_transcript_url", AsyncMock(return_value="raw transcript")):
             result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected"
         corrector.assert_called_once_with("raw transcript", "", "Ep 1", "desc")
@@ -159,9 +159,9 @@ class TestGetEpisodeContent:
         transcriber = AsyncMock()
         transcriber.transcribe = AsyncMock(return_value="transcribed")
         with (
-            patch("bot.feed._fetch_transcript_url", AsyncMock(return_value=None)),
-            patch("bot.feed._download_audio", AsyncMock(return_value="/tmp/audio.mp3")),
-            patch("bot.feed.os.unlink"),
+            patch("core.feed._fetch_transcript_url", AsyncMock(return_value=None)),
+            patch("core.feed._download_audio", AsyncMock(return_value="/tmp/audio.mp3")),
+            patch("core.feed.os.unlink"),
         ):
             result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected audio"
@@ -173,8 +173,8 @@ class TestGetEpisodeContent:
         transcriber = AsyncMock()
         transcriber.transcribe = AsyncMock(return_value=None)
         with (
-            patch("bot.feed._fetch_transcript_url", AsyncMock(return_value=None)),
-            patch("bot.feed._download_audio", AsyncMock(return_value=None)),
+            patch("core.feed._fetch_transcript_url", AsyncMock(return_value=None)),
+            patch("core.feed._download_audio", AsyncMock(return_value=None)),
         ):
             result = await get_episode_content(entry, transcriber, corrector=corrector)
         assert result == "corrected fallback"
@@ -189,7 +189,7 @@ class TestGetEpisodeContent:
         }
         transcriber = AsyncMock()
         transcriber.transcribe = AsyncMock(return_value=None)
-        with patch("bot.feed._fetch_transcript_url", AsyncMock(return_value=long_text)):
+        with patch("core.feed._fetch_transcript_url", AsyncMock(return_value=long_text)):
             result = await get_episode_content(entry, transcriber)
         assert len(result) <= MAX_TRANSCRIPT_CHARS
 
@@ -198,7 +198,7 @@ class TestFetchFeedEntries:
     async def test_limit_applied(self):
         mock_feed = MagicMock()
         mock_feed.entries = [{"title": f"Ep {i}"} for i in range(10)]
-        with patch("bot.feed.feedparser.parse", return_value=mock_feed):
+        with patch("core.feed.feedparser.parse", return_value=mock_feed):
             result = await fetch_feed_entries("http://example.com/feed.rss", limit=3)
         assert len(result) == 3
 
@@ -215,8 +215,8 @@ class TestFetchNewEpisodes:
             return guid == "guid1"
 
         with (
-            patch("bot.feed.feedparser.parse", return_value=mock_feed),
-            patch("bot.feed.get_episode_content", AsyncMock(return_value="content")),
+            patch("core.feed.feedparser.parse", return_value=mock_feed),
+            patch("core.feed.get_episode_content", AsyncMock(return_value="content")),
         ):
             result = await fetch_new_episodes("user1", "pod1", "http://example.com/feed.rss", is_seen)
         assert len(result) == 1
@@ -226,6 +226,6 @@ class TestFetchNewEpisodes:
         mock_feed = MagicMock()
         mock_feed.bozo = True
         mock_feed.entries = []
-        with patch("bot.feed.feedparser.parse", return_value=mock_feed):
+        with patch("core.feed.feedparser.parse", return_value=mock_feed):
             with pytest.raises(ValueError):
                 await fetch_new_episodes("user1", "pod1", "http://bad.url/feed.rss", AsyncMock())

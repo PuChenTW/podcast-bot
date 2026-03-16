@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from shared import database as db
+from core import database as db
 from web.app import create_app
 
 
@@ -25,7 +25,7 @@ async def test_regenerate_returns_job_id(tmp_path, monkeypatch):
     podcast_id, guid = await _setup_with_episode(tmp_path, monkeypatch)
     app = create_app()
 
-    with patch("bot.ai.summarizer.summarize_episode", new_callable=AsyncMock, return_value="New summary"):
+    with patch("core.ai.summarizer.summarize_episode", new_callable=AsyncMock, return_value="New summary"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             resp = await c.post(f"/api/podcasts/{podcast_id}/episodes/{guid}/regenerate")
             assert resp.status_code == 202

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from shared import database as db
+from core import database as db
 from web.auth import get_current_user
 
 router = APIRouter()

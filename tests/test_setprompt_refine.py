@@ -50,7 +50,7 @@ async def test_setprompt_enter_refine_from_user_data():
 async def test_setprompt_enter_refine_from_db():
     """enter_refine loads from DB when user_data has no generated_prompt."""
     from bot.handlers.setprompt import SETPROMPT_REFINE, setprompt_enter_refine
-    from shared.database import Subscription
+    from core.database import Subscription
 
     update, query = _make_callback_query("setprompt:refine:sub123")
     context = MagicMock()

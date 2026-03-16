@@ -1,7 +1,7 @@
 from pydantic_ai.messages import ModelMessage
 
-from bot.ai._agent import _get_agent
-from bot.config import get_settings
+from core.ai._agent import _get_agent
+from core.config import get_settings
 
 _CHAT_SYSTEM_PROMPT = (
     "You are a knowledgeable podcast discussion partner. Help the user explore, understand, and discuss the episode in depth.\n\n"
