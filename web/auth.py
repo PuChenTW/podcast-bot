@@ -2,7 +2,7 @@ import os
 
 from fastapi import Request
 
-from shared import database as db
+from core import database as db
 
 
 async def get_current_user(request: Request) -> str:

@@ -1,6 +1,6 @@
 import pytest
 
-from shared import database as db
+from core import database as db
 
 
 @pytest.mark.asyncio

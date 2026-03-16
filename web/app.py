@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from shared import database as db
+from core import database as db
 from web.routers import episodes, jobs, subscriptions
 
 

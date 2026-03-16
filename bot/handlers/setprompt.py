@@ -11,10 +11,10 @@ from telegram.ext import (
     filters,
 )
 
-from bot.ai.prompt_engineer import generate_prompt_from_description, refine_prompt
 from bot.handlers.callbacks import SetpromptActionCallback, SetpromptPodCallback
 from bot.i18n import gettext
-from shared import database as db
+from core import database as db
+from core.ai.prompt_engineer import generate_prompt_from_description, refine_prompt
 
 logger = logging.getLogger(__name__)
 

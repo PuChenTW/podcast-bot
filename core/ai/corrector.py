@@ -1,5 +1,5 @@
-from bot.ai._agent import _get_agent
-from bot.config import get_settings
+from core.ai._agent import _get_agent
+from core.config import get_settings
 
 _CORRECTION_SYSTEM_PROMPT = (
     "You are a transcript corrector. Given a podcast transcript that may contain ASR"

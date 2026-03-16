@@ -5,12 +5,12 @@ from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from telegram.ext import Application
 
-from bot.ai.corrector import correct_transcript
-from bot.ai.summarizer import summarize_episode
-from bot.config import get_settings
-from bot.feed import fetch_new_episodes
 from bot.formatting import format_summary
-from shared import database as db
+from core import database as db
+from core.ai.corrector import correct_transcript
+from core.ai.summarizer import summarize_episode
+from core.config import get_settings
+from core.feed import fetch_new_episodes
 
 logger = logging.getLogger(__name__)
 

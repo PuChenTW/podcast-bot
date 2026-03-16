@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 import feedparser
 import httpx
 
-from bot.transcribers import Transcriber
+from core.transcribers import Transcriber
 
 logger = logging.getLogger(__name__)
 

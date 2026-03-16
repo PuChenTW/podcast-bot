@@ -1,7 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from shared import database as db
+from core import database as db
 from web.app import create_app
 
 

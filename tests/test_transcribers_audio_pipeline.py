@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bot.transcribers.audio_pipeline import AudioPipeline
+from core.transcribers.audio_pipeline import AudioPipeline
 
 
 class MockChunkTranscriber:
@@ -41,7 +41,7 @@ async def test_no_conversion_no_split(pipeline, transcriber, tmp_path):
     audio = tmp_path / "episode.mp3"
     audio.write_bytes(b"x" * 100)
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run") as mock_run:
+    with patch("core.transcribers.audio_pipeline.subprocess.run") as mock_run:
         mock_run.return_value = _ffprobe_format_result("mp3")
 
         result = await pipeline.transcribe(str(audio))
@@ -75,7 +75,7 @@ async def test_format_conversion(pipeline, transcriber, tmp_path):
             open(out, "wb").write(b"x" * 100)
         return ffmpeg_result
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
+    with patch("core.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
         result = await pipeline.transcribe(str(audio))
 
     assert result == "hello"
@@ -104,7 +104,7 @@ async def test_format_conversion_cleanup(tmp_path):
         created_tmp.append(out)
         return MagicMock(returncode=0)
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
+    with patch("core.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
         await pipeline.transcribe(str(audio))
 
     for p in created_tmp:
@@ -129,8 +129,8 @@ async def test_oversized_file_split(tmp_path):
     def ffprobe_format(cmd, **kwargs):
         return _ffprobe_format_result("mp3")
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", side_effect=ffprobe_format):
-        with patch("bot.transcribers.audio_pipeline._split_audio", return_value=[str(chunk1), str(chunk2)]) as mock_split:
+    with patch("core.transcribers.audio_pipeline.subprocess.run", side_effect=ffprobe_format):
+        with patch("core.transcribers.audio_pipeline._split_audio", return_value=[str(chunk1), str(chunk2)]) as mock_split:
             result = await pipeline.transcribe(str(audio))
 
     mock_split.assert_called_once()
@@ -148,7 +148,7 @@ async def test_chunk_raises_returns_none(tmp_path):
     audio = tmp_path / "episode.mp3"
     audio.write_bytes(b"x" * 100)
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", return_value=_ffprobe_format_result("mp3")):
+    with patch("core.transcribers.audio_pipeline.subprocess.run", return_value=_ffprobe_format_result("mp3")):
         result = await pipeline.transcribe(str(audio))
 
     assert result is None
@@ -163,7 +163,7 @@ async def test_ffprobe_fails_proceeds_with_original(tmp_path):
     audio = tmp_path / "episode.mp3"
     audio.write_bytes(b"x" * 100)
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", return_value=_ffprobe_format_result("", returncode=1)):
+    with patch("core.transcribers.audio_pipeline.subprocess.run", return_value=_ffprobe_format_result("", returncode=1)):
         result = await pipeline.transcribe(str(audio))
 
     transcriber.transcribe_chunk.assert_awaited_once_with(str(audio))
@@ -192,7 +192,7 @@ async def test_ffmpeg_conversion_fails_uses_original(tmp_path):
         r.stderr = b"conversion error"
         return r
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
+    with patch("core.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
         result = await pipeline.transcribe(str(audio))
 
     transcriber.transcribe_chunk.assert_awaited_once_with(str(audio))
@@ -219,7 +219,7 @@ async def test_cleanup_runs_on_exception(tmp_path):
         created_tmp.append(out)
         return MagicMock(returncode=0)
 
-    with patch("bot.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
+    with patch("core.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
         result = await pipeline.transcribe(str(audio))
 
     assert result is None
@@ -230,7 +230,7 @@ async def test_cleanup_runs_on_exception(tmp_path):
 @pytest.mark.asyncio
 async def test_whisper_max_bytes_never_triggers_split(tmp_path):
     """WhisperTranscriber.max_bytes=2GB means realistic files never get split."""
-    from bot.transcribers.whisper import WHISPER_MAX_BYTES
+    from core.transcribers.whisper import WHISPER_MAX_BYTES
 
     assert WHISPER_MAX_BYTES == 2_000_000_000
     # A 200MB file (the hard cap from feed.py) is well below WHISPER_MAX_BYTES

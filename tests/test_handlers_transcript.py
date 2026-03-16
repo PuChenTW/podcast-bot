@@ -9,7 +9,7 @@ from bot.handlers.transcript import (
     _safe_filename,
     transcript_ep_selected,
 )
-from shared.database import (
+from core.database import (
     add_subscription,
     get_or_create_user,
     get_subscription_by_id,

@@ -1,9 +1,9 @@
 import pytest
 
-import bot.config as _config
-import shared.database as db_module
-from bot.config import Settings
-from shared.database import init_db
+import core.config as _config
+import core.database as db_module
+from core.config import Settings
+from core.database import init_db
 
 
 @pytest.fixture(autouse=True)

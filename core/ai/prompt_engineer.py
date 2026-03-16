@@ -1,5 +1,5 @@
-from bot.ai._agent import _get_agent
-from bot.config import get_settings
+from core.ai._agent import _get_agent
+from core.config import get_settings
 
 _META_PROMPT = (
     "You are a prompt engineer. Given a user's description of a podcast and their desired summary style,"
