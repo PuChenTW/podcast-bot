@@ -1,6 +1,4 @@
-from unittest.mock import AsyncMock as _AsyncMock
-
-from core.feed import CORRECTION_CHUNK_CHARS, _split_chunks, get_episode_content
+from core.ai.corrector import CORRECTION_CHUNK_CHARS, _split_chunks, correct_transcript
 
 # --- _split_chunks ---
 
@@ -42,55 +40,44 @@ def test_split_chunks_exact_boundary():
         assert len(chunk) <= CORRECTION_CHUNK_CHARS
 
 
-# --- _correct() inside get_episode_content ---
+# --- correct_transcript chunking ---
 
 
-async def test_correct_short_no_chunking():
+async def test_correct_short_no_chunking(monkeypatch):
     calls = []
 
-    async def mock_corrector(text, podcast_title, ep_title, description):
+    async def mock_correct_single_chunk(text, podcast_title, ep_title, description):
         calls.append(text)
         return text + "[ok]"
 
-    transcriber = _AsyncMock()
-    transcriber.transcribe = _AsyncMock(return_value=None)
-    entry = {"title": "Ep1", "summary": "desc"}
-    result = await get_episode_content(
-        entry,
-        transcriber,
-        podcast_title="Pod",
-        corrector=mock_corrector,
-    )
-    # No transcript/audio URL in entry → falls back to description
+    monkeypatch.setattr("core.ai.corrector._correct_single_chunk", mock_correct_single_chunk)
+
+    result = await correct_transcript(text="short text", podcast_title="Pod", episode_title="Ep1", description="desc")
+
     assert len(calls) == 1
     assert result.endswith("[ok]")
 
 
-async def test_correct_long_chunked():
+async def test_correct_long_chunked(monkeypatch):
     calls = []
 
-    async def mock_corrector(text, podcast_title, ep_title, description):
+    async def mock_correct_single_chunk(text, podcast_title, ep_title, description):
         calls.append(text)
         return text
+
+    monkeypatch.setattr("core.ai.corrector._correct_single_chunk", mock_correct_single_chunk)
 
     # Build a transcript longer than CORRECTION_CHUNK_CHARS via paragraphs
     para = "w" * 6_000
     long_text = "\n\n".join([para] * 4)  # ~24k chars across 4 paragraphs
 
-    # Patch get_episode_content to exercise chunking via the description fallback
-    transcriber = _AsyncMock()
-    transcriber.transcribe = _AsyncMock(return_value=None)
-    entry = {
-        "title": "Long Episode",
-        "summary": long_text,
-    }
-    await get_episode_content(
-        entry,
-        transcriber,
+    await correct_transcript(
+        text=long_text,
         podcast_title="Pod",
-        corrector=mock_corrector,
+        episode_title="Long Episode",
+        description="desc",
     )
-    # Description is used as fallback; it exceeds CORRECTION_CHUNK_CHARS so must be chunked
+
     assert len(calls) > 1
     for chunk in calls:
         assert len(chunk) <= CORRECTION_CHUNK_CHARS

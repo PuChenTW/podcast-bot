@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_BYTES = 500_000
 MAX_TRANSCRIPT_CHARS = 100_000
-CORRECTION_CHUNK_CHARS = 12_000
 
 _VTT_LINE = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3} --> .+$", re.MULTILINE)
 _SRT_TIMECODE = re.compile(r"^\d+\s*\n\d{2}:\d{2}:\d{2},\d{3} --> .+\n", re.MULTILINE)
@@ -141,31 +140,6 @@ async def _download_audio(url: str) -> str | None:
         return None
 
 
-def _split_chunks(text: str, max_chars: int) -> list[str]:
-    """Split text at paragraph boundaries into chunks of at most max_chars."""
-    if len(text) <= max_chars:
-        return [text]
-    paragraphs = text.split("\n\n")
-    chunks: list[str] = []
-    current: list[str] = []
-    current_len = 0
-    for para in paragraphs:
-        # Hard-cut oversized single paragraph
-        while len(para) > max_chars:
-            chunks.append(para[:max_chars])
-            para = para[max_chars:]
-        sep = "\n\n" if current else ""
-        if current_len + len(sep) + len(para) > max_chars and current:
-            chunks.append("\n\n".join(current))
-            current = []
-            current_len = 0
-        current.append(para)
-        current_len += len(sep) + len(para)
-    if current:
-        chunks.append("\n\n".join(current))
-    return chunks
-
-
 async def get_episode_content(
     entry: dict,
     transcriber: Transcriber,
@@ -179,11 +153,7 @@ async def get_episode_content(
             return text
         ep_title = entry.get("title", "")
         description = entry.get("summary") or entry.get("description", "")
-        chunks = _split_chunks(text, CORRECTION_CHUNK_CHARS)
-        if len(chunks) == 1:
-            return await corrector(text, podcast_title, ep_title, description)
-        results = await asyncio.gather(*[corrector(chunk, podcast_title, ep_title, description) for chunk in chunks])
-        return "\n\n".join(results)
+        return await corrector(text, podcast_title, ep_title, description)
 
     url = _resolve_transcript_url(entry)
     if url:
@@ -257,7 +227,7 @@ def parse_podcast_title(parsed: feedparser.FeedParserDict) -> str:
     return parsed.feed.get("title", "Unknown Podcast")
 
 
-async def _parse_entry(
+async def _build_episode(
     entry: dict,
     transcriber: Transcriber,
     podcast_title: str = "",
@@ -283,7 +253,7 @@ async def fetch_feed_episodes(
 ) -> list[Episode]:
     """Return up to `limit` most-recent episodes from the feed."""
     feed = await asyncio.to_thread(feedparser.parse, rss_url)
-    return [await _parse_entry(e, transcriber, corrector=corrector) for e in feed.entries[:limit]]
+    return [await _build_episode(e, transcriber, corrector=corrector) for e in feed.entries[:limit]]
 
 
 async def fetch_new_episodes(
@@ -307,7 +277,7 @@ async def fetch_new_episodes(
         if await is_seen_fn(user_id, podcast_id, guid):
             continue
 
-        ep = await _parse_entry(entry, transcriber, podcast_title, corrector)
+        ep = await _build_episode(entry, transcriber, podcast_title, corrector)
         new_episodes.append(ep)
 
     return new_episodes

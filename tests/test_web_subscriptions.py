@@ -29,6 +29,7 @@ async def test_post_subscription(tmp_path, monkeypatch):
     app = create_app()
 
     mock_feed = MagicMock()
+    mock_feed.bozo = False
     mock_feed.feed.title = "Test Podcast"
     mock_feed.entries = []
 
@@ -50,6 +51,7 @@ async def test_delete_subscription_success(tmp_path, monkeypatch):
     app = create_app()
 
     mock_feed = MagicMock()
+    mock_feed.bozo = False
     mock_feed.feed.title = "Del Test"
     mock_feed.entries = []
 
@@ -82,6 +84,7 @@ async def test_put_prompt(tmp_path, monkeypatch):
     app = create_app()
 
     mock_feed = MagicMock()
+    mock_feed.bozo = False
     mock_feed.feed.title = "Prompt Test"
     mock_feed.entries = []
 
