@@ -346,7 +346,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .chat-panel {
     display: flex;
     flex-direction: column;
-    height: 500px;
+    height: calc(100vh - 220px);
+    min-height: 400px;
     gap: 10px;
 }
 
@@ -388,6 +389,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     line-height: 1.6;
     word-break: break-word;
 }
+
+.bubble p { margin: 0 0 0.5em; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { margin: 0.25em 0 0.5em 1.25em; padding: 0; }
+.bubble li { margin-bottom: 0.2em; }
+.bubble code { background: rgba(0,0,0,0.07); border-radius: 3px; padding: 0.1em 0.3em; font-size: 0.875em; }
+.bubble pre { background: rgba(0,0,0,0.06); border-radius: 6px; padding: 0.6em 0.8em; overflow-x: auto; margin: 0.4em 0; }
+.bubble pre code { background: none; padding: 0; }
+.bubble strong { font-weight: 600; }
+.bubble h1, .bubble h2, .bubble h3 { font-size: 1em; font-weight: 700; margin: 0.5em 0 0.25em; }
 
 .chat-cursor {
     display: inline-block;

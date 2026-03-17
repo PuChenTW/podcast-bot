@@ -477,6 +477,7 @@ async function streamChat(podId, guid, message, historyJson, bubbleEl, cursorEl,
     let buf = '';
     let pendingEvent = '';
     let firstChunk = true;
+    let rawText = '';  // accumulates full response text for final markdown render
 
     while (true) {
         const { value, done } = await reader.read();
@@ -509,6 +510,7 @@ async function streamChat(podId, guid, message, historyJson, bubbleEl, cursorEl,
                         });
                     }
                     const text = data.replace(/\\n/g, '\n');
+                    rawText += text;
                     cursorEl.insertAdjacentText('beforebegin', text);
                     const hist = bubbleEl.closest('.chat-history');
                     if (hist) hist.scrollTop = hist.scrollHeight;
@@ -518,6 +520,12 @@ async function streamChat(podId, guid, message, historyJson, bubbleEl, cursorEl,
     }
 
     cursorEl.remove();
+    // Re-render accumulated text as markdown now that streaming is complete
+    if (rawText) {
+        bubbleEl.innerHTML = marked.parse(rawText);
+    }
+    const hist = bubbleEl.closest('.chat-history');
+    if (hist) hist.scrollTop = hist.scrollHeight;
 }
 
 
