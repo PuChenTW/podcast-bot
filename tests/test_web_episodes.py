@@ -129,3 +129,74 @@ async def test_episode_detail_no_subscription_returns_403(tmp_path, monkeypatch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get("/api/podcasts/unsubscribed-pod/episodes/any-guid/detail")
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_invalid_message_too_long(tmp_path, monkeypatch):
+    """message > 4000 chars → 400."""
+    sub_id, podcast_id, guid = await _setup_episode(tmp_path, monkeypatch)
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            f"/api/podcasts/{podcast_id}/episodes/{guid}/chat",
+            json={"message": "x" * 4001, "history": ""},
+        )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_invalid_history(tmp_path, monkeypatch):
+    """Malformed history JSON → 400."""
+    sub_id, podcast_id, guid = await _setup_episode(tmp_path, monkeypatch)
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            f"/api/podcasts/{podcast_id}/episodes/{guid}/chat",
+            json={"message": "hello", "history": "not-valid-json[[["},
+        )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_no_subscription_returns_403(tmp_path, monkeypatch):
+    """No subscription → 403."""
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test403.db"))
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "8888")
+    await db.init_db()
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/podcasts/no-such-pod/episodes/any-guid/chat",
+            json={"message": "hello", "history": ""},
+        )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_streams_sse(tmp_path, monkeypatch):
+    """Happy path: streams text/event-stream with data chunks and final history event."""
+    from unittest.mock import patch as mock_patch
+
+    sub_id, podcast_id, guid = await _setup_episode(tmp_path, monkeypatch)
+
+    # Patch chat_with_episode_stream to yield two deltas then final history
+    async def fake_stream(*args, **kwargs):
+        yield "Hello", None
+        yield " world", None
+        yield "", []  # final tuple: empty string + empty message list
+
+    app = create_app()
+    with mock_patch("web.routers.episodes.chat_with_episode_stream", side_effect=fake_stream):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            resp = await c.post(
+                f"/api/podcasts/{podcast_id}/episodes/{guid}/chat",
+                json={"message": "hi", "history": ""},
+            )
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+    body = resp.text
+    assert "data: Hello\n" in body
+    assert "data:  world\n" in body
+    assert "event: history\n" in body
