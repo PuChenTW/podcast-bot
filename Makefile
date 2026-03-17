@@ -1,7 +1,7 @@
 .PHONY: run web-run migrate-up migrate-down migrate-status test lint format docker-build docker-up docker-down docker-logs docker-restart
 
-run:
-	uv run python main.py
+bot-run:
+	uv run python bot_main.py
 
 web-run:
 	uv run uvicorn web_main:app --reload --port 8000

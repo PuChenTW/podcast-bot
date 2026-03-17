@@ -12,10 +12,14 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies (no dev group)
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --all-extras
 
 # Copy application source
-COPY main.py ./
+COPY bot_main.py web_main.py ./
 COPY bot/ ./bot/
+COPY web/ ./web/
+COPY core/ ./core/
+COPY migrate/ ./migrate/
+COPY migrations/ ./migrations/
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["uv", "run", "python", "bot_main.py"]
