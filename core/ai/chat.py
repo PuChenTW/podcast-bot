@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+
 from pydantic_ai.messages import ModelMessage
 
 from core.ai._agent import _get_agent
@@ -42,3 +44,34 @@ async def chat_with_episode(
     agent = _get_agent(model, system_prompt)
     result = await agent.run(user_message, message_history=history or None)
     return result.output, list(result.all_messages())
+
+
+async def chat_with_episode_stream(
+    user_message: str,
+    episode_title: str,
+    podcast_title: str,
+    transcript: str,
+    summary: str | None,
+    history: list[ModelMessage],
+    lang: str,
+) -> AsyncIterator[tuple[str, list[ModelMessage] | None]]:
+    """Yield (text_delta, None) for each streamed chunk, then ("", all_messages) at the end."""
+    model = get_settings().chat_model
+    if transcript and summary:
+        context_section = _CHAT_CONTEXT_FULL.format(summary=summary, transcript=transcript[:_CHAT_TRANSCRIPT_LIMIT])
+    elif summary:
+        context_section = _CHAT_CONTEXT_SUMMARY_ONLY.format(summary=summary)
+    else:
+        context_section = _CHAT_CONTEXT_NONE
+
+    system_prompt = _CHAT_SYSTEM_PROMPT.format(
+        podcast_title=podcast_title,
+        episode_title=episode_title,
+        context_section=context_section,
+        lang=lang,
+    )
+    agent = _get_agent(model, system_prompt)
+    async with agent.run_stream(user_message, message_history=history or None) as result:
+        async for chunk in result.stream_text(delta=True):
+            yield chunk, None
+        yield "", list(result.all_messages())  # inside async with — result still valid

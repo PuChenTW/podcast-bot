@@ -1,8 +1,56 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from core import database as db
 from web.app import create_app
+
+
+@pytest.mark.asyncio
+async def test_chat_with_episode_stream_yields_deltas():
+    """chat_with_episode_stream should yield text deltas then final messages."""
+    from core.ai.chat import chat_with_episode_stream
+
+    fake_chunks = ["Hello", " world", "!"]
+    fake_messages = []  # simplified — we just check the final yield is a list
+
+    # Mock StreamedRunResult — stream_text must return an async iterable
+    async def fake_text_stream():
+        for c in fake_chunks:
+            yield c
+
+    mock_result = MagicMock()
+    mock_result.stream_text = MagicMock(return_value=fake_text_stream())
+    mock_result.all_messages = MagicMock(return_value=fake_messages)
+
+    # Mock agent.run_stream context manager
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=mock_result)
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+    mock_agent = MagicMock()
+    mock_agent.run_stream = MagicMock(return_value=mock_cm)
+
+    with patch("core.ai.chat._get_agent", return_value=mock_agent):
+        results = []
+        async for chunk, msgs in chat_with_episode_stream(
+            user_message="test",
+            episode_title="Ep",
+            podcast_title="Pod",
+            transcript="transcript text",
+            summary="summary text",
+            history=[],
+            lang="zh-TW",
+        ):
+            results.append((chunk, msgs))
+
+    # Last item should be ("", list) — the final history yield
+    assert results[-1][0] == ""
+    assert isinstance(results[-1][1], list)
+    # All other items should be text deltas
+    deltas = [r[0] for r in results[:-1]]
+    assert deltas == fake_chunks
 
 
 async def _setup_episode(tmp_path, monkeypatch):
