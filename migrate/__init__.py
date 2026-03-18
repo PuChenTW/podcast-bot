@@ -5,21 +5,27 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import aiosqlite
+import asyncpg
 
-DEFAULT_DB_PATH = "podcast_bot.db"
-DEFAULT_MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
-
-
-async def ensure_migrations_table(db: aiosqlite.Connection) -> None:
-    await db.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
-    await db.commit()
+DEFAULT_MIGRATIONS_DIR = Path(__file__).parent.parent / "pg_migrations"
 
 
-async def get_applied_versions(db: aiosqlite.Connection) -> set[int]:
-    async with db.execute("SELECT version FROM schema_migrations") as cursor:
-        rows = await cursor.fetchall()
-    return {row[0] for row in rows}
+async def _exec_sql_file(db: asyncpg.Connection, sql_text: str) -> None:
+    """Execute a SQL file by splitting on semicolons and running each statement."""
+    statements = [s.strip() for s in sql_text.split(";") if s.strip()]
+    for stmt in statements:
+        await db.execute(stmt)
+
+
+async def ensure_migrations_table(db: asyncpg.Connection) -> None:
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
+    )
+
+
+async def get_applied_versions(db: asyncpg.Connection) -> set[int]:
+    rows = await db.fetch("SELECT version FROM schema_migrations")
+    return {row["version"] for row in rows}
 
 
 def discover_migrations(
@@ -40,10 +46,14 @@ def discover_migrations(
 
 
 async def migrate_up(
-    db_path: str = DEFAULT_DB_PATH,
+    db_url: str | None = None,
     migrations_dir: Path = DEFAULT_MIGRATIONS_DIR,
 ) -> None:
-    async with aiosqlite.connect(db_path) as db:
+    if db_url is None:
+        from core.config import get_settings
+        db_url = get_settings().database_url
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
         applied = await get_applied_versions(db)
         migrations = discover_migrations(migrations_dir)
@@ -53,22 +63,27 @@ async def migrate_up(
             return
         for version, up_path, _ in pending:
             print(f"Applying migration {version}: {up_path.name}")
-            sql = up_path.read_text()
-            await db.executescript(sql)
+            await _exec_sql_file(db, up_path.read_text())
             await db.execute(
-                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
-                (version, datetime.now(timezone.utc).isoformat()),
+                "INSERT INTO schema_migrations (version, applied_at) VALUES ($1, $2)",
+                version,
+                datetime.now(timezone.utc).isoformat(),
             )
-            await db.commit()
         print(f"Applied {len(pending)} migration(s).")
+    finally:
+        await db.close()
 
 
 async def migrate_down(
-    db_path: str = DEFAULT_DB_PATH,
+    db_url: str | None = None,
     migrations_dir: Path = DEFAULT_MIGRATIONS_DIR,
     target_version: int = 0,
 ) -> None:
-    async with aiosqlite.connect(db_path) as db:
+    if db_url is None:
+        from core.config import get_settings
+        db_url = get_settings().database_url
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
         applied = await get_applied_versions(db)
         migrations = discover_migrations(migrations_dir)
@@ -85,24 +100,30 @@ async def migrate_down(
                 print(f"Error: no down migration for version {version}", file=sys.stderr)
                 sys.exit(1)
             print(f"Rolling back migration {version}: {down_path.name}")
-            sql = down_path.read_text()
-            await db.executescript(sql)
-            await db.execute("DELETE FROM schema_migrations WHERE version = ?", (version,))
-            await db.commit()
+            await _exec_sql_file(db, down_path.read_text())
+            await db.execute("DELETE FROM schema_migrations WHERE version = $1", version)
         print(f"Rolled back {len(to_rollback)} migration(s).")
+    finally:
+        await db.close()
 
 
 async def status(
-    db_path: str = DEFAULT_DB_PATH,
+    db_url: str | None = None,
     migrations_dir: Path = DEFAULT_MIGRATIONS_DIR,
 ) -> None:
+    if db_url is None:
+        from core.config import get_settings
+        db_url = get_settings().database_url
     migrations = discover_migrations(migrations_dir)
     if not migrations:
         print("No migrations found.")
         return
-    async with aiosqlite.connect(db_path) as db:
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
         applied = await get_applied_versions(db)
+    finally:
+        await db.close()
     print(f"{'Version':<10} {'Status':<10} {'File'}")
     print("-" * 50)
     for version, up_path, _ in migrations:

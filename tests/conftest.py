@@ -1,3 +1,4 @@
+import asyncpg
 import pytest
 
 import core.config as _config
@@ -22,16 +23,35 @@ def _fake_settings(monkeypatch):
         corrector_model="google-gla:gemini-flash-lite-latest",
         prompt_engineer_model="google-gla:gemini-flash-lite-latest",
         condenser_model="google-gla:gemini-flash-lite-latest",
+        database_url="postgresql://fake@localhost/fake",
     )
     monkeypatch.setattr(_config, "_settings", fake)
 
 
 @pytest.fixture
-async def tmp_db(tmp_path, monkeypatch):
-    path = str(tmp_path / "test.db")
-    monkeypatch.setattr(db_module, "DB_PATH", path)
+async def tmp_db(monkeypatch, postgresql):
+    """Fixture: fresh PostgreSQL database with all migrations applied. Patches db._pool."""
+    params = postgresql.get_dsn_parameters()
+    dsn = "postgresql://{user}@{host}:{port}/{dbname}".format(**params)
+    pool = await asyncpg.create_pool(dsn)
+    monkeypatch.setattr(db_module, "_pool", pool)
     await init_db()
-    yield path
+    yield dsn
+    await pool.close()
+    monkeypatch.setattr(db_module, "_pool", None)
+
+
+@pytest.fixture
+async def pg_fresh_db(monkeypatch, postgresql):
+    """Fixture: fresh PostgreSQL database WITHOUT migrations applied. Patches db._pool.
+    Use for tests that call init_db() themselves (e.g. web tests via app lifespan)."""
+    params = postgresql.get_dsn_parameters()
+    dsn = "postgresql://{user}@{host}:{port}/{dbname}".format(**params)
+    pool = await asyncpg.create_pool(dsn)
+    monkeypatch.setattr(db_module, "_pool", pool)
+    yield dsn
+    await pool.close()
+    monkeypatch.setattr(db_module, "_pool", None)
 
 
 async def async_gen(*chunks):

@@ -8,8 +8,7 @@ from web.app import create_app
 
 
 @pytest.mark.asyncio
-async def test_get_subscriptions_empty(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
+async def test_get_subscriptions_empty(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
     await db.init_db()
@@ -21,8 +20,7 @@ async def test_get_subscriptions_empty(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_post_subscription(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
+async def test_post_subscription(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
     await db.init_db()
@@ -43,8 +41,7 @@ async def test_post_subscription(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_delete_subscription_success(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
+async def test_delete_subscription_success(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
     await db.init_db()
@@ -64,8 +61,7 @@ async def test_delete_subscription_success(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_delete_subscription_not_found(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
+async def test_delete_subscription_not_found(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
     await db.init_db()
@@ -76,8 +72,7 @@ async def test_delete_subscription_not_found(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_put_prompt(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
+async def test_put_prompt(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
     await db.init_db()

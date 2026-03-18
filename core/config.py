@@ -21,6 +21,7 @@ class Settings:
     corrector_model: str
     prompt_engineer_model: str
     condenser_model: str
+    database_url: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -28,6 +29,7 @@ class Settings:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         gemini_key = os.getenv("GEMINI_API_KEY")
         admin_user_id = os.getenv("ADMIN_USER_ID")
+        database_url = os.getenv("DATABASE_URL")
 
         if not token:
             missing.append("TELEGRAM_BOT_TOKEN")
@@ -35,6 +37,8 @@ class Settings:
             missing.append("GEMINI_API_KEY")
         if not admin_user_id:
             missing.append("ADMIN_USER_ID")
+        if not database_url:
+            missing.append("DATABASE_URL")
 
         if missing:
             raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
@@ -62,6 +66,7 @@ class Settings:
             corrector_model=os.getenv("CORRECTOR_MODEL", base),
             prompt_engineer_model=os.getenv("PROMPT_ENGINEER_MODEL", base),
             condenser_model=os.getenv("CONDENSER_MODEL", base),
+            database_url=database_url,
         )
 
 
