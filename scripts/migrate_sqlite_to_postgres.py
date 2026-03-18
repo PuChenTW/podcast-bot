@@ -13,9 +13,19 @@ import argparse
 import asyncio
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import asyncpg
+
+# Columns that are TIMESTAMPTZ in PostgreSQL but stored as strings in SQLite
+_TIMESTAMP_COLS: dict[str, set[str]] = {
+    "users": {"created_at"},
+    "podcasts": {"created_at"},
+    "subscriptions": {"created_at"},
+    "episodes": {"published_at"},
+    "user_episodes": {"notified_at"},
+}
 
 # Path to the PostgreSQL migration SQL file (relative to project root)
 PG_MIGRATIONS_DIR = Path(__file__).parent.parent / "pg_migrations"
@@ -72,9 +82,18 @@ async def migrate(sqlite_path: str, postgres_url: str) -> None:
                 f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
             )
 
+            ts_cols = _TIMESTAMP_COLS.get(table, set())
             async with pg.transaction():
                 for row in rows:
-                    values = [row[c] for c in columns]
+                    values = []
+                    for c in columns:
+                        v = row[c]
+                        if c in ts_cols and isinstance(v, str):
+                            try:
+                                v = datetime.fromisoformat(v)
+                            except ValueError:
+                                v = None
+                        values.append(v)
                     await pg.execute(insert_sql, *values)
 
             print(f"  {table}: {len(rows)} rows migrated")
