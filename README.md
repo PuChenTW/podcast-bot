@@ -13,11 +13,13 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 - Transcript chunking + parallel ASR correction via Gemini for long audio
 - Deduplicates episodes to avoid repeated summaries
 - Multi-turn AI chat about any episode via `/chat`
+- Web UI for managing subscriptions and browsing episode summaries
 
 ## Prerequisites
 
 - Python 3.13+
 - [uv](https://github.com/astral-sh/uv)
+- PostgreSQL instance
 - Telegram bot token (from [@BotFather](https://t.me/BotFather))
 - Google Gemini API key
 
@@ -28,6 +30,7 @@ git clone <repo-url>
 cd podcast-bot
 cp .env.example .env        # fill in required vars (see Configuration)
 uv sync                     # install dependencies
+make migrate-up             # apply DB migrations
 make run                    # run the bot
 ```
 
@@ -54,12 +57,19 @@ All configuration is via `.env`:
 |----------|---------|-------------|
 | `TELEGRAM_BOT_TOKEN` | required | Bot API token from @BotFather |
 | `GEMINI_API_KEY` | required | Google Gemini API key |
-| `GEMINI_MODEL` | `gemini-flash-lite-latest` | Gemini model for summarization |
+| `DATABASE_URL` | required | asyncpg connection string (e.g. `postgresql://user:pass@localhost/dbname`) |
+| `AI_MODEL` | `google-gla:gemini-flash-lite-latest` | Base model for all AI ops (full `provider:model` string) |
+| `SUMMARIZER_MODEL` | `AI_MODEL` | Override model for summarization only |
+| `CHAT_MODEL` | `AI_MODEL` | Override model for `/chat` only |
+| `CORRECTOR_MODEL` | `AI_MODEL` | Override model for transcript correction only |
+| `PROMPT_ENGINEER_MODEL` | `AI_MODEL` | Override model for `/setprompt` AI generation only |
+| `CONDENSER_MODEL` | `AI_MODEL` | Override model for transcript condensation only |
 | `TRANSCRIBER` | `whisper` | Transcription backend: `whisper` (local) or `groq` (API) |
 | `WHISPER_MODEL` | `base` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large-v3` (only when `TRANSCRIBER=whisper`) |
 | `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |
 | `POLL_INTERVAL_SECONDS` | `21600` | How often to poll for new episodes (default: 6 hours) |
 | `ADMIN_USER_ID` | required | Your Telegram user ID — find via [@userinfobot](https://t.me/userinfobot) |
+| `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
 
 ## Docker
 
@@ -71,7 +81,7 @@ make docker-logs            # tail logs
 make docker-down            # stop
 ```
 
-The entire project directory is bind-mounted into the container, so `.git` is available for `/reload`. The in-image `.venv` is protected via an anonymous volume so the host mount doesn't shadow it.
+The source directory is bind-mounted into the container for `/reload`. The in-image `.venv` is protected via an anonymous volume so the host mount doesn't shadow it.
 
 ## Architecture
 
@@ -81,19 +91,22 @@ Single-process async bot built on python-telegram-bot and APScheduler. The pipel
 RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episode() → Telegram message
 ```
 
-| File | Role |
+| Path | Role |
 |------|------|
 | `main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
-| `bot/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
-| `bot/feed.py` | RSS parsing, transcript/audio fetching; delegates transcription via injected `Transcriber` |
-| `bot/transcribers/` | `Transcriber` protocol; `ChunkTranscriber` protocol; `WhisperTranscriber`; `GroqTranscriber`; `AudioPipeline` (format conversion + splitting); `TranscriberPipeline` fallback orchestrator |
-| `bot/ai/` | Pydantic AI (Gemini) modules: `summarizer.py` (episode summaries), `chat.py` (multi-turn chat), `corrector.py` (ASR correction), `prompt_engineer.py` (prompt refinement) |
+| `core/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
+| `core/database.py` | Async PostgreSQL via asyncpg; all DB read/write functions |
+| `core/feed.py` | RSS parsing, transcript/audio fetching |
+| `core/ai/` | Gemini AI modules: summarizer, chat, transcript corrector, prompt engineer, condenser |
+| `core/transcribers/` | Whisper + Groq backends + `AudioPipeline` + `TranscriberPipeline` fallback |
 | `bot/scheduler.py` | Polls subscriptions on interval; marks episodes seen even on error |
-| `bot/handlers/` | Handler modules: `subscribe.py`, `digest.py`, `transcript.py`, `chat.py`, `setprompt.py`, `language.py`, `admin.py`, `callbacks.py`; shared `episode_picker.py` widget |
-| `bot/handlers/callbacks.py` | Pydantic models for typed inline-keyboard callback data |
+| `bot/handlers/` | One module per command/flow; shared `episode_picker.py` widget |
+| `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW` |
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
-| `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW`; unknown lang falls back to `zh-TW` |
-| `shared/database.py` | Async SQLite (aiosqlite). Tables: `users`, `podcasts`, `subscriptions`, `episodes`, `user_episodes` (ULID primary keys) |
+| `migrate/` | Migration runner: `python -m migrate [up\|down <version>\|status]` |
+| `migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
+| `web/` | FastAPI web UI: REST API + static frontend |
+| `web_main.py` | ASGI entry point: `uvicorn web_main:app` |
 
 ## Content Pipeline
 
@@ -105,21 +118,13 @@ Episode content is fetched via a 3-strategy waterfall, stopping at the first suc
 
 Transcripts are capped at 500 KB / 100 K characters before being sent to Gemini. Long transcripts are chunked and corrected in parallel via Gemini before summarization.
 
-## Handler Design Pattern
-
-Multi-step flows (`/subscribe`, `/digest`, `/transcript`, `/chat`, `/setprompt`, `/unsubscribe`) are implemented as PTB `ConversationHandler` state machines. Each state is expressed as a handler function, not a `user_data` dict key.
-
-- Each `ConversationHandler` instance lives at the bottom of its own module
-- Per-user `user_data` is keyed by flow (e.g. `"digest_eps"` vs `"transcript_eps"`) to prevent cross-flow data leakage
-- Inline-keyboard callback data is structured via Pydantic models in `bot/handlers/callbacks.py`, avoiding string parsing in handler logic
-
 ## Database Schema
 
 ```
 users(id ULID PK, telegram_user_id, chat_id, language, created_at)
 podcasts(id ULID PK, rss_url UNIQUE, title, created_at)
 subscriptions(id ULID PK, user_id→users, podcast_id→podcasts, custom_prompt, created_at)
-episodes(id ULID PK, podcast_id→podcasts, episode_guid, title, published_at, transcript)
+episodes(id ULID PK, podcast_id→podcasts, episode_guid, title, published_at, transcript, condensed_transcript, description)
   UNIQUE(podcast_id, episode_guid)  -- shared across users
 user_episodes(id ULID PK, user_id→users, episode_id→episodes, summary, notified_at)
   UNIQUE(user_id, episode_id)  -- per-user delivery record
@@ -140,10 +145,11 @@ Or directly: `uv run python -m migrate [up|down <version>|status]`
 ## Development
 
 ```bash
-uv sync --group dev  # install dev dependencies
-make test            # run tests
-make lint            # ruff linter
-make format          # ruff formatter
+make sync                          # install dev dependencies
+make test                          # run tests
+make lint                          # ruff linter
+make format                        # ruff formatter
+make web-run                       # run web UI on port 8000
 ```
 
 ## Notes

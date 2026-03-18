@@ -5,7 +5,7 @@
 | Module | Role |
 |--------|------|
 | `config.py` | `Settings` dataclass from `.env`; `get_settings()` singleton |
-| `database.py` | Async SQLite via aiosqlite; all DB read/write functions |
+| `database.py` | Async PostgreSQL via asyncpg; all DB read/write functions |
 | `feed.py` | RSS parsing, transcript URL resolution, audio download, episode content waterfall |
 | `ai/summarizer.py` | `summarize_episode(title, content, custom_prompt?)` → Markdown str |
 | `ai/chat.py` | `chat_with_episode(...)` → multi-turn conversation |
@@ -29,13 +29,9 @@ user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified
 
 Schema source of truth is `migrations/NNN_up.sql`. `init_db()` applies pending migrations via the `migrate` module's low-level helpers — there is no `_SCHEMA` constant.
 
-## aiosqlite testing
+## asyncpg testing
 
-Use a temp file path, NOT `:memory:`. Each `aiosqlite.connect()` call opens a new independent connection; `:memory:` gives each call a fresh empty database. Tests must patch `DB_PATH` in `core.database`:
-```python
-import core.database as db_module
-monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "test.db"))
-```
+Tests must patch `_get_pool` in `core.database` or set `DATABASE_URL` to a real test PostgreSQL instance. Mock the pool at the module level — asyncpg does not support in-memory databases.
 
 ## DB functions — episode lookup
 

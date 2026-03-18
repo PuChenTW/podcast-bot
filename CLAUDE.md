@@ -33,7 +33,7 @@ make docker-logs             # tail container logs
 
 ## Docker
 
-`docker-compose.yml` mounts `.env` and `podcast_bot.db` as bind mounts — secrets and data stay on host. `podcast_bot.db` is auto-created on first run.
+`docker-compose.yml` mounts `.env` as a bind mount — secrets stay on host. Database is PostgreSQL (external); configure `DATABASE_URL` in `.env`.
 
 **Hot-reload (`/reload` command):** source is mounted from host (`.:/app`). Requires `openssh-client` in image + `~/.ssh:/root/.ssh:ro` volume for SSH remotes. Anonymous volume `/app/.venv` prevents the host mount from shadowing the in-image venv.
 
@@ -49,7 +49,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 |------|------|
 | `main.py` | Entry point: wires DB init, scheduler, Telegram handlers |
 | `core/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
-| `core/database.py` | Async SQLite via aiosqlite — see `core/CLAUDE.md` |
+| `core/database.py` | Async PostgreSQL via asyncpg — see `core/CLAUDE.md` |
 | `core/feed.py` | RSS parsing, transcript/audio fetching |
 | `core/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `core/CLAUDE.md` |
 | `core/transcribers/` | Whisper + Groq backends, fallback pipeline — see `core/CLAUDE.md` |
@@ -77,6 +77,7 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `TRANSCRIBER` | `whisper` | `whisper` or `groq` |
 | `WHISPER_MODEL` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
 | `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |
+| `DATABASE_URL` | required | asyncpg connection string (e.g. `postgresql://user:pass@localhost/dbname`) |
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
 | `ADMIN_USER_ID` | required | Telegram user ID for `/reload` |
 | `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
@@ -89,13 +90,3 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 
 High cohesion: each workflow is fully self-contained in its own module. `main.py` only wires things together — one handler registration per feature, no scattered logic.
 
-## SQLite Recovery
-
-If DB is corrupted (`database disk image is malformed`):
-```bash
-cp podcast_bot.db podcast_bot.db.bak
-sqlite3 podcast_bot.db ".recover" | sqlite3 podcast_bot_recovered.db
-# Unattributable pages land in lost_and_found — episodes rows are recoverable from there
-# Then swap: mv podcast_bot.db podcast_bot.db.corrupted && mv podcast_bot_recovered.db podcast_bot.db
-```
-WAL corruption risk: always stop the bot with SIGTERM (not SIGKILL) so SQLite can checkpoint.
