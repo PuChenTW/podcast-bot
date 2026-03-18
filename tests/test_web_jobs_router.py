@@ -8,8 +8,7 @@ from core import database as db
 from web.app import create_app
 
 
-async def _setup_with_episode(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
+async def _setup_with_episode(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "7777")
     await db.init_db()
@@ -21,8 +20,8 @@ async def _setup_with_episode(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_regenerate_returns_job_id(tmp_path, monkeypatch):
-    podcast_id, guid = await _setup_with_episode(tmp_path, monkeypatch)
+async def test_regenerate_returns_job_id(pg_fresh_db, monkeypatch):
+    podcast_id, guid = await _setup_with_episode(pg_fresh_db, monkeypatch)
     app = create_app()
 
     with patch("core.ai.summarizer.summarize_episode", new_callable=AsyncMock, return_value="New summary"):
@@ -43,8 +42,7 @@ async def test_regenerate_returns_job_id(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_regenerate_no_subscription_returns_403(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test2.db"))
+async def test_regenerate_no_subscription_returns_403(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "7777")
     await db.init_db()
@@ -55,8 +53,7 @@ async def test_regenerate_no_subscription_returns_403(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_job_not_found(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test3.db"))
+async def test_get_job_not_found(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "7777")
     app = create_app()

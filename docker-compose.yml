@@ -1,7 +1,25 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: podcast
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: podcast_bot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U podcast -d podcast_bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   bot:
     build: .
     env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - .:/app
       - /app/.venv
@@ -14,7 +32,13 @@ services:
     command: ["uv", "run", "uvicorn", "web_main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - .:/app
       - /app/.venv
     restart: unless-stopped
+
+volumes:
+  pgdata:
