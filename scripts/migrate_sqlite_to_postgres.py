@@ -59,13 +59,28 @@ async def migrate(sqlite_path: str, postgres_url: str) -> None:
         await _exec_sql_file(pg, PG_MIGRATIONS_DIR / "001_up.sql")
         print("Schema ready.\n")
 
-        # Tables to migrate in dependency order (FK-safe)
+        # Tables to migrate in dependency order (FK-safe).
+        # Queries filter out orphaned rows to avoid FK violations in PostgreSQL.
         tables = [
             ("users", "SELECT id, telegram_user_id, chat_id, language, created_at FROM users"),
             ("podcasts", "SELECT id, rss_url, title, created_at FROM podcasts"),
-            ("subscriptions", "SELECT id, user_id, podcast_id, custom_prompt, created_at FROM subscriptions"),
-            ("episodes", "SELECT id, podcast_id, episode_guid, title, published_at, transcript, condensed_transcript, description FROM episodes"),
-            ("user_episodes", "SELECT id, user_id, episode_id, summary, notified_at FROM user_episodes"),
+            (
+                "subscriptions",
+                "SELECT s.id, s.user_id, s.podcast_id, s.custom_prompt, s.created_at FROM subscriptions s "
+                "WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id) "
+                "AND EXISTS (SELECT 1 FROM podcasts p WHERE p.id = s.podcast_id)",
+            ),
+            (
+                "episodes",
+                "SELECT e.id, e.podcast_id, e.episode_guid, e.title, e.published_at, e.transcript, e.condensed_transcript, e.description FROM episodes e "
+                "WHERE EXISTS (SELECT 1 FROM podcasts p WHERE p.id = e.podcast_id)",
+            ),
+            (
+                "user_episodes",
+                "SELECT ue.id, ue.user_id, ue.episode_id, ue.summary, ue.notified_at FROM user_episodes ue "
+                "WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = ue.user_id) "
+                "AND EXISTS (SELECT 1 FROM episodes e WHERE e.id = ue.episode_id)",
+            ),
             ("schema_migrations", "SELECT version, applied_at FROM schema_migrations"),
         ]
 
