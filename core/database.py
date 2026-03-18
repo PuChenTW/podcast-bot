@@ -46,6 +46,18 @@ def _new_id() -> str:
     return str(ULID())
 
 
+def _parse_dt(value: str | datetime | None) -> datetime | None:
+    """Convert a string timestamp to datetime for asyncpg TIMESTAMPTZ parameters."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
 async def init_db() -> None:
     pool = await _get_pool()
     async with pool.acquire() as db:
@@ -250,13 +262,13 @@ async def mark_episode_seen(
     async with _connect() as db:
         await db.execute(
             "INSERT INTO episodes (id, podcast_id, episode_guid, title, published_at, transcript, description) "
-            "VALUES ($1, $2, $3, $4, $5::TEXT::TIMESTAMPTZ, $6, $7) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7) "
             "ON CONFLICT (podcast_id, episode_guid) DO UPDATE SET "
             "  transcript = COALESCE(EXCLUDED.transcript, episodes.transcript), "
             "  title = COALESCE(EXCLUDED.title, episodes.title), "
             "  published_at = COALESCE(EXCLUDED.published_at, episodes.published_at), "
             "  description = COALESCE(EXCLUDED.description, episodes.description)",
-            _new_id(), podcast_id, guid, title, published_at, transcript, description,
+            _new_id(), podcast_id, guid, title, _parse_dt(published_at), transcript, description,
         )
         row = await db.fetchrow(
             "SELECT id FROM episodes WHERE podcast_id = $1 AND episode_guid = $2",
