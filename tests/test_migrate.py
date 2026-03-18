@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import aiosqlite
+import asyncpg
 import pytest
 
 from migrate import (
@@ -31,8 +31,9 @@ def migrations_dir(tmp_path):
 
 
 @pytest.fixture
-def db_path(tmp_path):
-    return str(tmp_path / "test.db")
+def db_url(_postgres):
+    creds = _postgres.pmr_credentials
+    return f"postgresql://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
 
 
 # --- discover_migrations ---
@@ -78,42 +79,53 @@ def test_discover_normalizes_version(migrations_dir):
 
 
 @pytest.mark.asyncio
-async def test_ensure_migrations_table_creates(db_path):
-    async with aiosqlite.connect(db_path) as db:
+async def test_ensure_migrations_table_creates(db_url):
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
-        async with db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'") as cur:
-            row = await cur.fetchone()
-    assert row is not None
+        row = await db.fetchrow("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename='schema_migrations'")
+        assert row is not None
+    finally:
+        await db.close()
 
 
 @pytest.mark.asyncio
-async def test_ensure_migrations_table_idempotent(db_path):
-    async with aiosqlite.connect(db_path) as db:
+async def test_ensure_migrations_table_idempotent(db_url):
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
         await ensure_migrations_table(db)  # should not raise
+    finally:
+        await db.close()
 
 
 # --- get_applied_versions ---
 
 
 @pytest.mark.asyncio
-async def test_get_applied_versions_empty(db_path):
-    async with aiosqlite.connect(db_path) as db:
+async def test_get_applied_versions_empty(db_url):
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
         versions = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert versions == set()
 
 
 @pytest.mark.asyncio
-async def test_get_applied_versions_returns_inserted(db_path):
-    async with aiosqlite.connect(db_path) as db:
+async def test_get_applied_versions_returns_inserted(db_url):
+    db = await asyncpg.connect(db_url)
+    try:
         await ensure_migrations_table(db)
         await db.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
-            (1, "2026-01-01T00:00:00+00:00"),
+            "INSERT INTO schema_migrations (version, applied_at) VALUES ($1, $2)",
+            1,
+            "2026-01-01T00:00:00+00:00",
         )
-        await db.commit()
         versions = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert versions == {1}
 
 
@@ -121,35 +133,41 @@ async def test_get_applied_versions_returns_inserted(db_path):
 
 
 @pytest.mark.asyncio
-async def test_migrate_up_applies_all(db_path, migrations_dir):
-    await migrate_up(db_path, migrations_dir)
-    async with aiosqlite.connect(db_path) as db:
+async def test_migrate_up_applies_all(db_url, migrations_dir):
+    await migrate_up(db_url, migrations_dir)
+    db = await asyncpg.connect(db_url)
+    try:
         versions = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert versions == {1, 2}
 
 
 @pytest.mark.asyncio
-async def test_migrate_up_idempotent(db_path, migrations_dir):
-    await migrate_up(db_path, migrations_dir)
-    await migrate_up(db_path, migrations_dir)  # should not raise or double-apply
-    async with aiosqlite.connect(db_path) as db:
+async def test_migrate_up_idempotent(db_url, migrations_dir):
+    await migrate_up(db_url, migrations_dir)
+    await migrate_up(db_url, migrations_dir)  # should not raise or double-apply
+    db = await asyncpg.connect(db_url)
+    try:
         versions = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert versions == {1, 2}
 
 
 @pytest.mark.asyncio
-async def test_migrate_up_skips_applied(db_path, migrations_dir, capsys):
-    await migrate_up(db_path, migrations_dir)
-    await migrate_up(db_path, migrations_dir)
+async def test_migrate_up_skips_applied(db_url, migrations_dir, capsys):
+    await migrate_up(db_url, migrations_dir)
+    await migrate_up(db_url, migrations_dir)
     captured = capsys.readouterr()
     assert "Nothing to migrate" in captured.out
 
 
 @pytest.mark.asyncio
-async def test_migrate_up_nothing_to_migrate_empty(db_path, tmp_path, capsys):
+async def test_migrate_up_nothing_to_migrate_empty(db_url, tmp_path, capsys):
     empty = tmp_path / "empty"
     empty.mkdir()
-    await migrate_up(db_path, empty)
+    await migrate_up(db_url, empty)
     captured = capsys.readouterr()
     assert "Nothing to migrate" in captured.out
 
@@ -158,40 +176,46 @@ async def test_migrate_up_nothing_to_migrate_empty(db_path, tmp_path, capsys):
 
 
 @pytest.mark.asyncio
-async def test_migrate_down_rollback_to_zero(db_path, migrations_dir):
-    await migrate_up(db_path, migrations_dir)
-    await migrate_down(db_path, migrations_dir, target_version=0)
-    async with aiosqlite.connect(db_path) as db:
+async def test_migrate_down_rollback_to_zero(db_url, migrations_dir):
+    await migrate_up(db_url, migrations_dir)
+    await migrate_down(db_url, migrations_dir, target_version=0)
+    db = await asyncpg.connect(db_url)
+    try:
         versions = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert versions == set()
 
 
 @pytest.mark.asyncio
-async def test_migrate_down_rollback_to_version_1(db_path, migrations_dir):
-    await migrate_up(db_path, migrations_dir)
-    await migrate_down(db_path, migrations_dir, target_version=1)
-    async with aiosqlite.connect(db_path) as db:
+async def test_migrate_down_rollback_to_version_1(db_url, migrations_dir):
+    await migrate_up(db_url, migrations_dir)
+    await migrate_down(db_url, migrations_dir, target_version=1)
+    db = await asyncpg.connect(db_url)
+    try:
         versions = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert versions == {1}
 
 
 @pytest.mark.asyncio
-async def test_migrate_down_nothing_to_rollback(db_path, migrations_dir, capsys):
-    await migrate_up(db_path, migrations_dir)
-    await migrate_down(db_path, migrations_dir, target_version=2)
+async def test_migrate_down_nothing_to_rollback(db_url, migrations_dir, capsys):
+    await migrate_up(db_url, migrations_dir)
+    await migrate_down(db_url, migrations_dir, target_version=2)
     captured = capsys.readouterr()
     assert "Nothing to rollback" in captured.out
 
 
 @pytest.mark.asyncio
-async def test_migrate_down_missing_down_exits(db_path, tmp_path):
+async def test_migrate_down_missing_down_exits(db_url, tmp_path):
     d = tmp_path / "migs"
     d.mkdir()
     write_migration(d, "001_up.sql", "CREATE TABLE IF NOT EXISTS t1 (id INTEGER);")
     # No 001_down.sql
-    await migrate_up(db_path, d)
+    await migrate_up(db_url, d)
     with pytest.raises(SystemExit) as exc_info:
-        await migrate_down(db_path, d, target_version=0)
+        await migrate_down(db_url, d, target_version=0)
     assert exc_info.value.code == 1
 
 
@@ -199,25 +223,25 @@ async def test_migrate_down_missing_down_exits(db_path, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_status_shows_pending(db_path, migrations_dir, capsys):
-    await status(db_path, migrations_dir)
+async def test_status_shows_pending(db_url, migrations_dir, capsys):
+    await status(db_url, migrations_dir)
     captured = capsys.readouterr()
     assert "pending" in captured.out
 
 
 @pytest.mark.asyncio
-async def test_status_shows_applied(db_path, migrations_dir, capsys):
-    await migrate_up(db_path, migrations_dir)
-    await status(db_path, migrations_dir)
+async def test_status_shows_applied(db_url, migrations_dir, capsys):
+    await migrate_up(db_url, migrations_dir)
+    await status(db_url, migrations_dir)
     captured = capsys.readouterr()
     assert "applied" in captured.out
 
 
 @pytest.mark.asyncio
-async def test_status_no_migrations(db_path, tmp_path, capsys):
+async def test_status_no_migrations(db_url, tmp_path, capsys):
     empty = tmp_path / "empty"
     empty.mkdir()
-    await status(db_path, empty)
+    await status(db_url, empty)
     captured = capsys.readouterr()
     assert "No migrations found" in captured.out
 
@@ -226,18 +250,27 @@ async def test_status_no_migrations(db_path, tmp_path, capsys):
 
 
 @pytest.mark.asyncio
-async def test_round_trip_up_down_up(db_path, migrations_dir):
-    await migrate_up(db_path, migrations_dir)
-    async with aiosqlite.connect(db_path) as db:
+async def test_round_trip_up_down_up(db_url, migrations_dir):
+    await migrate_up(db_url, migrations_dir)
+    db = await asyncpg.connect(db_url)
+    try:
         v1 = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert v1 == {1, 2}
 
-    await migrate_down(db_path, migrations_dir, target_version=0)
-    async with aiosqlite.connect(db_path) as db:
+    await migrate_down(db_url, migrations_dir, target_version=0)
+    db = await asyncpg.connect(db_url)
+    try:
         v2 = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert v2 == set()
 
-    await migrate_up(db_path, migrations_dir)
-    async with aiosqlite.connect(db_path) as db:
+    await migrate_up(db_url, migrations_dir)
+    db = await asyncpg.connect(db_url)
+    try:
         v3 = await get_applied_versions(db)
+    finally:
+        await db.close()
     assert v3 == {1, 2}

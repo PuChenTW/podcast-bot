@@ -73,11 +73,3 @@ async def test_update_episode_summary_raises_on_missing_episode(tmp_db):
         await db.update_episode_summary(user_id, podcast_id, "nonexistent-guid", "Some summary")
 
 
-@pytest.mark.asyncio
-async def test_wal_mode_enabled(tmp_db):
-    import aiosqlite
-
-    async with aiosqlite.connect(tmp_db) as conn:
-        async with conn.execute("PRAGMA journal_mode") as cur:
-            row = await cur.fetchone()
-    assert row[0] == "wal"

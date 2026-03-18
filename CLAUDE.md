@@ -15,8 +15,8 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 
 ```bash
 cp .env.example .env         # first run: fill in required vars
-uv sync                      # install / sync dependencies
-uv sync --group dev          # include pytest + pytest-asyncio
+uv sync --all-extras         # install / sync dependencies
+uv sync --group dev --all-extras         # include pytest + pytest-asyncio
 uv run python main.py        # run the bot (or: make run)
 make web-run                 # run web UI (uvicorn, port 8000)
 uv add <package>             # add a dependency

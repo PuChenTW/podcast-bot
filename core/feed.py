@@ -24,7 +24,7 @@ _SRT_TIMECODE = re.compile(r"^\d+\s*\n\d{2}:\d{2}:\d{2},\d{3} --> .+\n", re.MULT
 _AUDIO_MIME = re.compile(r"^audio/")
 _APPLE_PODCAST_RE = re.compile(r"podcasts\.apple\.com/.+/id(\d+)")
 
-MAX_AUDIO_BYTES = 200_000_000  # 200 MB hard cap
+MAX_AUDIO_BYTES = 500_000_000  # 500 MB hard cap
 
 # Type alias for the transcript corrector callable.
 Corrector = Callable[[str, str, str, str], Awaitable[str]]

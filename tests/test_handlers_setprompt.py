@@ -38,8 +38,9 @@ async def test_manual_mode_saves_prompt():
     update, message = make_message_update("My custom prompt text")
     ctx = make_context({"setprompt": {"subscription_id": "sub-123"}})
 
-    with patch("bot.handlers.setprompt.db.set_subscription_prompt", new_callable=AsyncMock) as mock_save:
-        result = await setprompt_save_manual(update, ctx)
+    with patch("bot.handlers.setprompt.db.get_user_language", new_callable=AsyncMock, return_value="zh-TW"):
+        with patch("bot.handlers.setprompt.db.set_subscription_prompt", new_callable=AsyncMock) as mock_save:
+            result = await setprompt_save_manual(update, ctx)
 
     mock_save.assert_awaited_once_with("sub-123", "My custom prompt text")
     assert "setprompt" not in ctx.user_data
@@ -52,7 +53,8 @@ async def test_cmd_subscribe_returns_waiting_url_state():
     update, message = make_message_update("")
     ctx = make_context({})
 
-    result = await cmd_subscribe(update, ctx)
+    with patch("bot.handlers.subscribe.db.get_user_language", new_callable=AsyncMock, return_value="zh-TW"):
+        result = await cmd_subscribe(update, ctx)
 
     assert result == SUBSCRIBE_WAITING_URL
     message.reply_text.assert_awaited_once()
@@ -67,17 +69,18 @@ async def test_cmd_setprompt_returns_choose_pod_state():
     fake_sub.id = "sub-999"
     fake_sub.podcast_title = "Test Podcast"
 
-    with patch(
-        "bot.handlers.setprompt.db.get_or_create_user",
-        new_callable=AsyncMock,
-        return_value="user-1",
-    ):
+    with patch("bot.handlers.setprompt.db.get_user_language", new_callable=AsyncMock, return_value="zh-TW"):
         with patch(
-            "bot.handlers.setprompt.db.get_subscriptions",
+            "bot.handlers.setprompt.db.get_or_create_user",
             new_callable=AsyncMock,
-            return_value=[fake_sub],
+            return_value="user-1",
         ):
-            result = await cmd_setprompt(update, ctx)
+            with patch(
+                "bot.handlers.setprompt.db.get_subscriptions",
+                new_callable=AsyncMock,
+                return_value=[fake_sub],
+            ):
+                result = await cmd_setprompt(update, ctx)
 
     assert result == SETPROMPT_CHOOSE_POD
     message.reply_text.assert_awaited_once()
@@ -91,12 +94,13 @@ async def test_subscribe_url_received_returns_end_on_bad_url():
     sent_msg = AsyncMock()
     message.reply_text.return_value = sent_msg
 
-    with patch(
-        "bot.handlers.subscribe.resolve_rss_url",
-        new_callable=AsyncMock,
-        side_effect=ValueError("Bad URL"),
-    ):
-        result = await subscribe_url_received(update, ctx)
+    with patch("bot.handlers.subscribe.db.get_user_language", new_callable=AsyncMock, return_value="zh-TW"):
+        with patch(
+            "bot.handlers.subscribe.resolve_rss_url",
+            new_callable=AsyncMock,
+            side_effect=ValueError("Bad URL"),
+        ):
+            result = await subscribe_url_received(update, ctx)
 
     assert result == ConversationHandler.END
 

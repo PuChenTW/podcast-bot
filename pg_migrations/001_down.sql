@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS user_episodes;
+DROP TABLE IF EXISTS episodes;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS podcasts;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS schema_migrations;
