@@ -2,7 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.i18n import gettext
 from core import database as db
-from core.feed import get_episode_content
+from core.feed import get_transcript
 
 _PAGE_SIZE = 5
 
@@ -61,12 +61,8 @@ async def get_or_fetch_transcript(
     podcast_title: str,
     corrector,
 ) -> str | None:
+    """Return real transcript text, or None if unavailable. Checks DB cache first."""
     existing = await db.get_episode_transcript(podcast_id, guid)
     if existing:
         return existing
-    return await get_episode_content(
-        entry,
-        transcriber,
-        podcast_title=podcast_title,
-        corrector=corrector,
-    )
+    return await get_transcript(entry, transcriber, podcast_title=podcast_title, corrector=corrector)

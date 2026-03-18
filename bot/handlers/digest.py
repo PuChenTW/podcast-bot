@@ -170,7 +170,8 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     try:
         transcriber = context.bot_data["transcriber"]
-        content = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], correct_transcript)
+        transcript = await get_or_fetch_transcript(sub.podcast_id, guid, ep["entry"], transcriber, ep["podcast_title"], correct_transcript)
+        content = transcript or ep["entry"].get("summary") or ep["entry"].get("description") or ""
         summary = await summarize_episode(
             ep["title"],
             content,
@@ -183,7 +184,7 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
             title=ep["title"],
             published_at=parse_published(ep["entry"]),
             summary=summary,
-            transcript=content,
+            transcript=transcript,  # may be None
         )
         text = format_summary(ep["podcast_title"], ep["title"], summary)
         await send_html(query.message.reply_text, text)

@@ -52,13 +52,13 @@ async def regenerate_summary(podcast_id: str, guid: str, user_id: str = Depends(
             )
             if entry:
                 transcriber = _build_transcriber()
-                transcript = await feed_module.get_episode_content(entry, transcriber, podcast.get("title", ""), corrector=correct_transcript)
+                transcript = await feed_module.get_transcript(entry, transcriber, podcast.get("title", ""), corrector=correct_transcript)
                 if transcript:
                     await db.update_episode_transcript(podcast_id, guid, transcript)
 
         summary = await summarizer.summarize_episode(
             detail["title"] or guid,
-            transcript or "",
+            transcript or detail.get("description") or "",
             sub.custom_prompt,
         )
         await db.update_episode_summary(user_id, podcast_id, guid, summary)

@@ -33,7 +33,7 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             title=episode.title,
             published_at=episode.published,
             summary=summary,
-            transcript=episode.content,
+            transcript=episode.transcript,  # None when no real transcript was found
             description=episode.description,
         )
     except Exception as exc:

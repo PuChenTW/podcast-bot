@@ -88,7 +88,7 @@ The source directory is bind-mounted into the container for `/reload`. The in-im
 Single-process async bot built on python-telegram-bot and APScheduler. The pipeline is:
 
 ```
-RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episode() → Telegram message
+RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() → Telegram message
 ```
 
 | Path | Role |
@@ -146,11 +146,13 @@ Or directly: `uv run python -m migrate [up|down <version>|status]`
 
 ```bash
 make sync                          # install dev dependencies
-make test                          # run tests
+make test                          # run tests (parallel via pytest-xdist)
 make lint                          # ruff linter
 make format                        # ruff formatter
 make web-run                       # run web UI on port 8000
 ```
+
+Tests use `pytest-mock-resources` for PostgreSQL. The fixture is `scope="session"` (one DB per xdist worker) to avoid concurrent `CREATE DATABASE` calls crashing the PMR container under `-n auto`. Each test truncates tables instead of cloning a new DB.
 
 ## Notes
 

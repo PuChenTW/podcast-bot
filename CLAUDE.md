@@ -42,7 +42,7 @@ make docker-logs             # tail container logs
 Single-process async bot (python-telegram-bot + APScheduler).
 
 ```
-RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episode() → Telegram message
+RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() → Telegram message
 ```
 
 | Path | Role |
@@ -81,6 +81,14 @@ RSS feed → fetch_new_episodes() → get_episode_content() → summarize_episod
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
 | `ADMIN_USER_ID` | required | Telegram user ID for `/reload` |
 | `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
+
+## Testing
+
+Tests use `pytest-mock-resources` for PostgreSQL fixtures. Key design:
+
+- `_postgres` is `scope="session"` — one DB per xdist worker, migrations applied once via `asyncio.run()` at session start. Avoids concurrent `CREATE DATABASE` storms under `-n auto`.
+- `tmp_db` / `pg_fresh_db` fixtures create a fresh per-test asyncpg pool and `TRUNCATE` all tables instead of cloning a new DB each time.
+- `test_migrate.py` uses its own `_migrate_postgres = create_postgres_fixture()` (function-scoped) because migration tests need a clean `schema_migrations` table, which the shared session DB already has populated.
 
 ## Code Style
 

@@ -52,6 +52,7 @@ class Episode:
     published: str | None
     content: str  # transcript text or description (used for summarization)
     description: str  # raw RSS description/show notes
+    transcript: str | None  # real transcript only; None if no transcript was found
 
 
 def _strip_timing_markers(text: str) -> str:
@@ -140,13 +141,13 @@ async def _download_audio(url: str) -> str | None:
         return None
 
 
-async def get_episode_content(
+async def get_transcript(
     entry: dict,
     transcriber: Transcriber,
     podcast_title: str = "",
     corrector: Corrector | None = None,
-) -> str:
-    """Return corrected transcript text (or episode description as fallback)."""
+) -> str | None:
+    """Return corrected transcript text from URL or audio; None if neither succeeded."""
 
     async def _correct(text: str) -> str:
         if corrector is None:
@@ -175,8 +176,7 @@ async def get_episode_content(
                 except OSError:
                     pass
 
-    fallback = entry.get("summary") or entry.get("description") or ""
-    return await _correct(fallback[:MAX_TRANSCRIPT_CHARS])
+    return None
 
 
 async def resolve_rss_url(url: str) -> str:
@@ -234,14 +234,16 @@ async def _build_episode(
     corrector: Corrector | None = None,
 ) -> Episode:
     guid = entry.get("id") or entry.get("link") or entry.get("title", "")
-    content = await get_episode_content(entry, transcriber, podcast_title, corrector)
+    transcript = await get_transcript(entry, transcriber, podcast_title, corrector)
     description = entry.get("summary") or entry.get("description") or ""
+    content = transcript or description
     return Episode(
         guid=guid,
         title=entry.get("title", "Untitled"),
         published=parse_published(entry),
         content=content,
         description=description,
+        transcript=transcript,
     )
 
 

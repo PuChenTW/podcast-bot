@@ -2,6 +2,7 @@ from pathlib import Path
 
 import asyncpg
 import pytest
+from pytest_mock_resources import create_postgres_fixture
 
 from migrate import (
     discover_migrations,
@@ -30,9 +31,15 @@ def migrations_dir(tmp_path):
     return d
 
 
+# Function-scoped fixture so each migrate test gets a fresh, empty DB.
+# The session-scoped _postgres in conftest.py already has real migrations applied,
+# so migrate tests need their own isolated DB to test migration logic cleanly.
+_migrate_postgres = create_postgres_fixture()
+
+
 @pytest.fixture
-def db_url(_postgres):
-    creds = _postgres.pmr_credentials
+def db_url(_migrate_postgres):
+    creds = _migrate_postgres.pmr_credentials
     return f"postgresql://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
 
 

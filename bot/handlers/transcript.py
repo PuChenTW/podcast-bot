@@ -198,13 +198,14 @@ async def transcript_ep_selected(update: Update, context: ContextTypes.DEFAULT_T
                 guid,
                 title=ep["title"],
                 published_at=published_at,
-                transcript=transcript,
+                transcript=transcript,  # may be None
             )
 
         episode_id = await db.get_episode_id(sub.podcast_id, guid)
         summary = await db.get_episode_summary(user_id, episode_id) if episode_id else None
         published_at = ep["entry"].get("published")
-        content = _build_markdown(ep["podcast_title"], ep["title"], published_at, summary, transcript)
+        transcript_content = transcript or ep["entry"].get("summary") or ep["entry"].get("description") or ""
+        content = _build_markdown(ep["podcast_title"], ep["title"], published_at, summary, transcript_content)
         file_obj = io.BytesIO(content.encode("utf-8"))
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
