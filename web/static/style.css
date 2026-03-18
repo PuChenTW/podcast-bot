@@ -1,5 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; }
 
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+
 body {
     font-family: system-ui, sans-serif;
     max-width: 860px;
@@ -7,7 +13,8 @@ body {
     padding: 1.25rem 1rem;
     color: #0f172a;
     background: #f8fafc;
-    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
 }
@@ -50,6 +57,7 @@ nav .nav-crumb { font-size: 0.875rem; font-weight: 600; color: #0f172a; }
 #content {
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
@@ -370,11 +378,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .chat-history {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 4px 0;
+    padding: 4px 16px 4px 0;
 }
 
 .chat-msg {
@@ -435,6 +444,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .chat-input-row {
     display: flex;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .chat-input-row input {
