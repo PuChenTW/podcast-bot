@@ -250,7 +250,7 @@ async def mark_episode_seen(
     async with _connect() as db:
         await db.execute(
             "INSERT INTO episodes (id, podcast_id, episode_guid, title, published_at, transcript, description) "
-            "VALUES ($1, $2, $3, $4, $5::TIMESTAMPTZ, $6, $7) "
+            "VALUES ($1, $2, $3, $4, $5::TEXT::TIMESTAMPTZ, $6, $7) "
             "ON CONFLICT (podcast_id, episode_guid) DO UPDATE SET "
             "  transcript = COALESCE(EXCLUDED.transcript, episodes.transcript), "
             "  title = COALESCE(EXCLUDED.title, episodes.title), "
