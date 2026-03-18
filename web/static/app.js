@@ -436,7 +436,7 @@ function buildChatPanel(panel, podId, guid, detail) {
     });
 
     inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
             e.preventDefault();
             const msg = inputEl.value.trim();
             if (!msg) return;
