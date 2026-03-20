@@ -175,7 +175,7 @@ nav .nav-crumb { font-size: 0.875rem; font-weight: 600; color: #0f172a; }
 .regen-btn:disabled { opacity: 0.4; cursor: default; }
 
 .tab-content { display: none; }
-.tab-content.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tab-content.active { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
 
 /* ---- Episode list ---- */
 .episode-list {
