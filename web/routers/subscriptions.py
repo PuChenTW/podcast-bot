@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from core import database as db
@@ -15,6 +16,36 @@ class SubscribeRequest(BaseModel):
 
 class PromptRequest(BaseModel):
     prompt: str | None
+
+
+@router.get("/podcasts/search")
+async def search_podcasts(q: str = Query(default=""), user_id: str = Depends(get_current_user)):
+    if not q:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://itunes.apple.com/search",
+                params={"term": q, "media": "podcast", "limit": 10},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=503, detail="搜尋逾時，請稍後再試。")
+    results = []
+    for item in data.get("results", []):
+        feed_url = item.get("feedUrl")
+        if not feed_url:
+            continue
+        results.append(
+            {
+                "name": item.get("collectionName", ""),
+                "artist": item.get("artistName", ""),
+                "artwork_url": item.get("artworkUrl100", item.get("artworkUrl60", "")),
+                "feed_url": feed_url,
+            }
+        )
+    return results
 
 
 @router.get("/subscriptions")

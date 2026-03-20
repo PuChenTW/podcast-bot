@@ -68,6 +68,10 @@ function buildCard(sub, grid, el) {
     return card;
 }
 
+function isUrl(s) {
+    return s.startsWith('http://') || s.startsWith('https://');
+}
+
 async function renderHome(el) {
     el.innerHTML = '<p class="spinner">Loading…</p>';
     setNavCrumb('');
@@ -81,31 +85,53 @@ async function renderHome(el) {
         panel.innerHTML = '<div class="section-label">新增訂閱</div>';
         const form = document.createElement('form');
         form.innerHTML = `
-            <input type="url" id="rss-url" placeholder="RSS 或 Apple Podcasts 網址" required>
-            <button type="submit">訂閱</button>
+            <input type="text" id="rss-url" placeholder="搜尋名稱，或貼入 RSS / Apple Podcasts 連結" autocomplete="off">
         `;
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = form.querySelector('button');
-            const input = document.getElementById('rss-url');
-            btn.disabled = true;
-            btn.textContent = '訂閱中…';
+        const input = form.querySelector('#rss-url');
+
+        const resultsList = document.createElement('div');
+        resultsList.className = 'search-results-list';
+        resultsList.style.display = 'none';
+
+        function hideResults() {
+            resultsList.style.display = 'none';
+            resultsList.innerHTML = '';
+        }
+
+        async function subscribeUrl(feedUrl, hint = {}) {
+            const prevErr = panel.querySelector('.error-msg');
+            if (prevErr) prevErr.remove();
+
+            // Ensure grid exists before API call so loading card can appear immediately
+            let grid = el.querySelector('.card-grid');
+            if (!grid) {
+                const emptyState = el.querySelector('.empty-state');
+                if (emptyState) emptyState.remove();
+                el.insertAdjacentHTML('beforeend', '<div class="section-label">我的訂閱</div>');
+                grid = document.createElement('div');
+                grid.className = 'card-grid';
+                el.appendChild(grid);
+            }
+
+            // Optimistic loading card
+            const loadingCard = document.createElement('div');
+            loadingCard.className = 'card card-loading';
+            loadingCard.innerHTML = `<h3>${esc(hint.name || feedUrl)}</h3><p class="subtitle spinner">訂閱中…</p>`;
+            grid.appendChild(loadingCard);
+            input.value = '';
+            hideResults();
+
             try {
-                const sub = await api('/subscriptions', { method: 'POST', body: JSON.stringify({ rss_url: input.value }) });
-                let grid = el.querySelector('.card-grid');
-                if (!grid) {
-                    const emptyState = el.querySelector('.empty-state');
-                    if (emptyState) emptyState.remove();
-                    el.insertAdjacentHTML('beforeend', '<div class="section-label">我的訂閱</div>');
-                    grid = document.createElement('div');
-                    grid.className = 'card-grid';
-                    el.appendChild(grid);
-                }
-                grid.appendChild(buildCard(sub, grid, el));
-                input.value = '';
-                const prevErr = panel.querySelector('.error-msg');
-                if (prevErr) prevErr.remove();
+                const sub = await api('/subscriptions', { method: 'POST', body: JSON.stringify({ rss_url: feedUrl }) });
+                loadingCard.replaceWith(buildCard(sub, grid, el));
             } catch (err) {
+                loadingCard.remove();
+                if (grid.children.length === 0) {
+                    const label = grid.previousElementSibling;
+                    if (label && label.classList.contains('section-label')) label.remove();
+                    grid.remove();
+                    el.insertAdjacentHTML('beforeend', '<div class="empty-state">尚無訂閱，請在上方新增。</div>');
+                }
                 let errDiv = panel.querySelector('.error-msg');
                 if (!errDiv) {
                     errDiv = document.createElement('p');
@@ -113,12 +139,56 @@ async function renderHome(el) {
                     panel.appendChild(errDiv);
                 }
                 errDiv.textContent = err.message;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '訂閱';
             }
+        }
+
+        async function searchPodcasts(q) {
+            resultsList.style.display = 'block';
+            resultsList.innerHTML = '<p class="spinner" style="padding:10px 14px;margin:0">搜尋中…</p>';
+            try {
+                const results = await api('/podcasts/search?q=' + encodeURIComponent(q));
+                if (!results.length) {
+                    resultsList.innerHTML = '<p class="spinner" style="padding:10px 14px;margin:0">無結果</p>';
+                    return;
+                }
+                resultsList.innerHTML = '';
+                for (const item of results) {
+                    const row = document.createElement('div');
+                    row.className = 'search-result-row';
+                    row.innerHTML = `
+                        <img src="${esc(item.artwork_url)}" width="48" height="48" onerror="this.style.display='none'">
+                        <div class="search-result-info">
+                            <span class="search-result-name">${esc(item.name)}</span>
+                            <span class="search-result-artist">${esc(item.artist)}</span>
+                        </div>
+                        <button type="button">+ 訂閱</button>
+                    `;
+                    row.querySelector('button').addEventListener('click', () => subscribeUrl(item.feed_url, { name: item.name }));
+                    resultsList.appendChild(row);
+                }
+            } catch (err) {
+                resultsList.innerHTML = `<p class="error-msg" style="padding:10px 14px;margin:0">${esc(err.message)}</p>`;
+            }
+        }
+
+        let debounceTimer = null;
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            const val = input.value.trim();
+            if (val.length < 2) { hideResults(); return; }
+            if (isUrl(val)) { hideResults(); return; }
+            debounceTimer = setTimeout(() => searchPodcasts(val), 300);
         });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (!val || !isUrl(val)) return;
+            await subscribeUrl(val);
+        });
+
         panel.appendChild(form);
+        panel.appendChild(resultsList);
         el.appendChild(panel);
 
         if (subs.length === 0) {
