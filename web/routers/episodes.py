@@ -41,7 +41,10 @@ class ChatRequest(BaseModel):
     history: str  # JSON string from ModelMessagesTypeAdapter.dump_json(); "" for first turn
 
 
-_CHAT_INIT_MESSAGE = "Please briefly introduce this episode's main topics and key points in 2-3 sentences, then invite the user to ask questions or share what they'd like to explore."
+_CHAT_INIT_MESSAGE = (
+    "[system] Please briefly introduce this episode's main topics and key points in 2-3 sentences"
+    ", then invite the user to ask questions or share what they'd like to explore. Follow the language instruction and style guide in system prompt."
+)
 
 
 @router.post("/podcasts/{podcast_id}/episodes/{guid}/chat")

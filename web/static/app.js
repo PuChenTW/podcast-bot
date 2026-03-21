@@ -471,7 +471,7 @@ function buildChatPanel(panel, podId, guid, detail) {
         <div class="chat-panel">
             <div class="chat-history" id="chat-history-area"></div>
             <div class="chat-input-row">
-                <input type="text" id="chat-input" placeholder="輸入訊息，按 Enter 送出…" autocomplete="off">
+                <textarea id="chat-input" placeholder="輸入訊息，按 Enter 送出；Shift+Enter 換行" autocomplete="off" rows="1"></textarea>
                 <button id="chat-send-btn">送出</button>
             </div>
         </div>
@@ -522,20 +522,28 @@ function buildChatPanel(panel, podId, guid, detail) {
         inputEl.focus();
     }
 
-    sendBtn.addEventListener('click', () => {
+    function autoResize() {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = inputEl.scrollHeight + 'px';
+    }
+
+    function submitInput() {
         const msg = inputEl.value.trim();
         if (!msg) return;
         inputEl.value = '';
+        inputEl.style.height = 'auto';
         sendMessage(msg);
-    });
+    }
+
+    inputEl.addEventListener('input', autoResize);
+
+    sendBtn.addEventListener('click', submitInput);
 
     inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.isComposing) return;
             e.preventDefault();
-            const msg = inputEl.value.trim();
-            if (!msg) return;
-            inputEl.value = '';
-            sendMessage(msg);
+            submitInput();
         }
     });
 

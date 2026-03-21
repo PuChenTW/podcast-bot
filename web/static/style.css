@@ -263,22 +263,24 @@ form {
     gap: 0.5rem;
     margin: 0.75rem 0 0;
 }
-input[type=text], input[type=url] {
+input[type=text], input[type=url], .chat-input-row textarea {
     flex: 1;
     padding: 0.5rem 0.75rem;
     border: 1.5px solid #e2e8f0;
     border-radius: 7px;
     font-size: 0.875rem;
-    color: #0f172a;
-    background: #f8fafc;
     outline: none;
     transition: border-color 0.15s;
 }
-input[type=text]:focus, input[type=url]:focus {
+input[type=text], input[type=url] {
+    color: #0f172a;
+    background: #f8fafc;
+}
+input[type=text]:focus, input[type=url]:focus, .chat-input-row textarea:focus {
     border-color: #0d9488;
     background: white;
 }
-input::placeholder { color: #94a3b8; }
+input::placeholder, textarea::placeholder { color: #94a3b8; }
 
 button {
     padding: 0.5rem 1rem;
@@ -400,21 +402,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     gap: 2px;
 }
 
-.search-result-name {
-    font-weight: 600;
-    font-size: 0.875rem;
-    color: #0f172a;
+.search-result-name, .search-result-artist {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
+.search-result-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #0f172a;
+}
 .search-result-artist {
     font-size: 12px;
     color: #64748b;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .search-result-row button {
@@ -501,19 +501,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     display: flex;
     gap: 8px;
     flex-shrink: 0;
+    align-items: flex-end;
 }
 
-.chat-input-row input {
-    flex: 1;
-    padding: 0.5rem 0.75rem;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 7px;
-    font-size: 0.875rem;
-    outline: none;
-    transition: border-color 0.15s;
-}
-
-.chat-input-row input:focus {
-    border-color: #0d9488;
-    background: white;
+.chat-input-row textarea {
+    resize: none;
+    line-height: 1.5;
+    font-family: inherit;
+    max-height: 8rem;
+    overflow-y: auto;
 }

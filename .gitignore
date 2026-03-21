@@ -8,3 +8,4 @@ podcast_bot.db*
 .vscode
 .superpowers
 docs/superpowers/
+.playwright-mcp
