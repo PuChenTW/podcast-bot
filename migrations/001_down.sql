@@ -1,3 +1,0 @@
-DROP TABLE IF EXISTS episodes;
-DROP TABLE IF EXISTS subscriptions;
-DROP TABLE IF EXISTS users;
