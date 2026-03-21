@@ -31,7 +31,7 @@ cd podcast-bot
 cp .env.example .env        # fill in required vars (see Configuration)
 uv sync                     # install dependencies
 make migrate-up             # apply DB migrations
-make run                    # run the bot
+make bot-run                # run the bot
 ```
 
 ## Bot Commands
@@ -93,7 +93,7 @@ RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() �
 
 | Path | Role |
 |------|------|
-| `main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
+| `bot_main.py` | Entry point: wires DB init, scheduler, and Telegram handlers |
 | `core/config.py` | `Settings` dataclass from `.env`; fails fast on missing vars |
 | `core/database.py` | Async PostgreSQL via asyncpg; all DB read/write functions |
 | `core/feed.py` | RSS parsing, transcript/audio fetching |
@@ -132,7 +132,7 @@ user_episodes(id ULID PK, user_id→users, episode_id→episodes, summary, notif
 
 ## Database Migrations
 
-Schema migrations live in `migrations/` and are run via the `migrate` package:
+Schema migrations live in `pg_migrations/` and are run via the `migrate` package:
 
 ```bash
 make migrate-up              # apply all pending migrations

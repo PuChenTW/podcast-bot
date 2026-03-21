@@ -11,7 +11,7 @@
 
 ## Application wiring
 
-`main.py` is the only place that registers handlers and builds the `Application`. One `add_handler` call per feature — no logic lives in `main.py`.
+`bot_main.py` is the only place that registers handlers and builds the `Application`. One `add_handler` call per feature — no logic lives in `bot_main.py`.
 
 ## i18n
 

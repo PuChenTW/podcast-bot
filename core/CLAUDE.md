@@ -27,7 +27,7 @@ user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified
   UNIQUE(user_id, episode_id)  -- per-user delivery record
 ```
 
-Schema source of truth is `migrations/NNN_up.sql`. `init_db()` applies pending migrations via the `migrate` module's low-level helpers — there is no `_SCHEMA` constant.
+Schema source of truth is `pg_migrations/NNN_up.sql`. `init_db()` applies pending migrations via the `migrate` module's low-level helpers — there is no `_SCHEMA` constant.
 
 ## asyncpg testing
 
@@ -75,4 +75,4 @@ All AI ops read model names from `get_settings()` and use `_get_agent(model, sys
 
 ## Transcriber wiring
 
-`TranscriberPipeline` has no knowledge of which backends to use — wiring happens in `main.py` via `_build_transcriber()`. `core.transcribers` exports: `AudioPipeline`, `ChunkTranscriber`, `Transcriber`, `WhisperTranscriber`, `GroqTranscriber`, `TranscriberPipeline`.
+`TranscriberPipeline` has no knowledge of which backends to use — wiring happens in `bot_main.py` via `_build_transcriber()`. `core.transcribers` exports: `AudioPipeline`, `ChunkTranscriber`, `Transcriber`, `WhisperTranscriber`, `GroqTranscriber`, `TranscriberPipeline`.

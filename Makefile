@@ -1,4 +1,4 @@
-.PHONY: run web-run migrate-up migrate-down migrate-status migrate-sqlite test lint format docker-build docker-up docker-down docker-logs docker-restart
+.PHONY: bot-run web-run migrate-up migrate-down migrate-status test lint format docker-build docker-up docker-down docker-logs docker-restart
 
 bot-run:
 	uv run python bot_main.py
@@ -15,8 +15,6 @@ migrate-down:
 migrate-status:
 	uv run python -m migrate status
 
-migrate-sqlite:
-	uv run python scripts/migrate_sqlite_to_postgres.py --sqlite $(sqlite) --postgres $(postgres)
 
 test:
 	uv run pytest tests/ -v -n auto

@@ -1,6 +1,6 @@
 ## ConversationHandler placement
 
-Each `ConversationHandler` instance is defined at the **bottom of its own module**: `subscribe_conv` and `unsubscribe_conv` in `subscribe.py`; `digest_conv` in `digest.py`; `setprompt_conv` in `setprompt.py`. Never construct handlers in `__init__.py` or `main.py`.
+Each `ConversationHandler` instance is defined at the **bottom of its own module**: `subscribe_conv` and `unsubscribe_conv` in `subscribe.py`; `digest_conv` in `digest.py`; `setprompt_conv` in `setprompt.py`. Never construct handlers in `__init__.py` or `bot_main.py`.
 
 ## __init__.py is pure imports
 
