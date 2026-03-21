@@ -104,7 +104,7 @@ RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() �
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)` — translation strings for `en`/`zh-TW` |
 | `bot/formatting.py` | Converts Gemini Markdown to Telegram HTML |
 | `migrate/` | Migration runner: `python -m migrate [up\|down <version>\|status]` |
-| `migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
+| `pg_migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
 | `web/` | FastAPI web UI: REST API + static frontend |
 | `web_main.py` | ASGI entry point: `uvicorn web_main:app` |
 

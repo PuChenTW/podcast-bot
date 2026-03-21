@@ -18,6 +18,10 @@ class PromptRequest(BaseModel):
     prompt: str | None
 
 
+class ChatPromptRequest(BaseModel):
+    prompt: str | None
+
+
 @router.get("/podcasts/search")
 async def search_podcasts(q: str = Query(default=""), user_id: str = Depends(get_current_user)):
     if not q:
@@ -117,4 +121,15 @@ async def update_prompt(sub_id: str, body: PromptRequest, user_id: str = Depends
     if sub.user_id != user_id:
         raise HTTPException(status_code=403, detail="Forbidden")
     await db.set_subscription_prompt(sub_id, body.prompt)
+    return {"ok": True}
+
+
+@router.put("/subscriptions/{sub_id}/chat-prompt")
+async def update_chat_prompt(sub_id: str, body: ChatPromptRequest, user_id: str = Depends(get_current_user)):
+    sub = await db.get_subscription_by_id(sub_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await db.set_subscription_chat_prompt(sub_id, body.prompt)
     return {"ok": True}

@@ -20,7 +20,7 @@
 ```
 users(id ULID, telegram_user_id, chat_id, language, created_at)
 podcasts(id ULID, rss_url UNIQUE, title, created_at)
-subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, created_at)
+subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, chat_prompt, created_at)
 episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript, condensed_transcript, description)
   UNIQUE(podcast_id, episode_guid)  -- shared across users
 user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified_at)

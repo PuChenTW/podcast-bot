@@ -77,6 +77,7 @@ async def chat_pod_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             "podcast_title": sub.podcast_title,
             "subscription_id": sub.id,
             "podcast_id": sub.podcast_id,
+            "chat_prompt": sub.chat_prompt,
         }
         for e in entries
     ]
@@ -156,6 +157,7 @@ async def chat_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         "summary": summary,
         "history": [],
         "lang": lang,
+        "chat_prompt": ep["chat_prompt"],
     }
     context.user_data.pop("chat_eps", None)
     context.user_data.pop("chat_offset", None)
@@ -191,6 +193,7 @@ async def chat_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             summary=session["summary"],
             history=session["history"],
             lang=lang,
+            custom_system_prompt=session.get("chat_prompt"),
         )
         session["history"] = updated_history
     except Exception as exc:

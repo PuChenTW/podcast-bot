@@ -67,6 +67,7 @@ async def episode_chat(podcast_id: str, guid: str, body: ChatRequest, user_id: s
         raise HTTPException(status_code=404, detail="Episode not found")
 
     podcast_title = next((s.podcast_title for s in subs if s.podcast_id == podcast_id), "")
+    chat_prompt = next((s.chat_prompt for s in subs if s.podcast_id == podcast_id), None)
     transcript = detail.get("condensed_transcript") or detail.get("transcript") or ""
     summary = detail.get("summary")
     episode_title = detail.get("title") or guid
@@ -85,6 +86,7 @@ async def episode_chat(podcast_id: str, guid: str, body: ChatRequest, user_id: s
                 summary=summary,
                 history=history,
                 lang="zh-TW",
+                custom_system_prompt=chat_prompt,
             ):
                 if msgs is not None:
                     history_json = ModelMessagesTypeAdapter.dump_json(msgs).decode()

@@ -250,6 +250,30 @@ async function renderEpisodeList(el, subId, page = 0) {
         promptDetails.appendChild(saveBtn);
         el.appendChild(promptDetails);
 
+        // Custom chat prompt editor
+        const chatPromptDetails = document.createElement('details');
+        chatPromptDetails.className = 'prompt-details';
+        chatPromptDetails.innerHTML = '<summary>自訂討論提示詞</summary>';
+        const chatPromptArea = document.createElement('textarea');
+        chatPromptArea.className = 'prompt-area';
+        chatPromptArea.placeholder = '留空則使用預設討論風格（例如：你是一位蘇格拉底式的導師，請引導我深入思考）';
+        chatPromptArea.value = sub.chat_prompt || '';
+        const chatSaveBtn = document.createElement('button');
+        chatSaveBtn.className = 'secondary';
+        chatSaveBtn.textContent = '儲存';
+        chatSaveBtn.style.marginTop = '0.5rem';
+        chatSaveBtn.addEventListener('click', async () => {
+            await api('/subscriptions/' + subId + '/chat-prompt', {
+                method: 'PUT',
+                body: JSON.stringify({ prompt: chatPromptArea.value || null }),
+            });
+            chatSaveBtn.textContent = '已儲存！';
+            setTimeout(() => { chatSaveBtn.textContent = '儲存'; }, 1500);
+        });
+        chatPromptDetails.appendChild(chatPromptArea);
+        chatPromptDetails.appendChild(chatSaveBtn);
+        el.appendChild(chatPromptDetails);
+
         // Refresh button
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'secondary';

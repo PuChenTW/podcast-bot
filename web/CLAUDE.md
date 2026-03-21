@@ -28,6 +28,7 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | POST | `/api/subscriptions` | Subscribe to RSS URL (marks existing episodes seen — no backlog flood); returns 422 if URL is not a valid RSS feed (`feed.bozo and not feed.entries`) |
 | DELETE | `/api/subscriptions/{sub_id}` | Unsubscribe |
 | PUT | `/api/subscriptions/{sub_id}/prompt` | Update custom summarization prompt |
+| PUT | `/api/subscriptions/{sub_id}/chat-prompt` | Update custom chat system prompt |
 | POST | `/api/subscriptions/{sub_id}/refresh` | Fetch RSS, upsert new episodes, return `{new_count}` |
 | GET | `/api/subscriptions/{sub_id}/episodes` | Paginated episode list (`?page=N`, page size 20) |
 | GET | `/api/podcasts/{podcast_id}/episodes/{guid}/detail` | Full episode detail (transcript + summary) |

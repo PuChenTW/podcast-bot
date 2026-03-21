@@ -58,7 +58,7 @@ RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() �
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)`; unknown lang falls back to `zh-TW` |
 | `bot/formatting.py` | Markdown → Telegram HTML conversion |
 | `migrate/` | Migration runner: `python -m migrate [up\|down <version>\|status]` |
-| `migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
+| `pg_migrations/` | SQL files: `NNN_up.sql` / `NNN_down.sql` |
 | `web/` | FastAPI web UI: REST API + static frontend for managing subscriptions/episodes — see `web/CLAUDE.md` |
 | `web_main.py` | ASGI entry point: `uvicorn web_main:app` |
 

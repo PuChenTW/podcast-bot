@@ -11,6 +11,12 @@ _CHAT_SYSTEM_PROMPT = (
     "{context_section}"
     "Respond conversationally. The user's UI language is {lang} but respond in whatever language the user writes in."
 )
+_CHAT_CUSTOM_SYSTEM_PROMPT = (
+    "{custom_system_prompt}\n\n"
+    "Podcast: {podcast_title}\nEpisode: {episode_title}\n\n"
+    "{context_section}"
+    "Respond conversationally. The user's UI language is {lang} but respond in whatever language the user writes in."
+)
 _CHAT_CONTEXT_FULL = "Episode summary:\n{summary}\n\nEpisode transcript (condensed if long):\n{transcript}\n\n"
 _CHAT_CONTEXT_SUMMARY_ONLY = "Episode summary:\n{summary}\n\nNote: full transcript unavailable.\n\n"
 _CHAT_CONTEXT_NONE = "Note: no transcript or summary available — discuss based on title.\n\n"
@@ -26,6 +32,7 @@ async def chat_with_episode(
     summary: str | None,
     history: list[ModelMessage],
     lang: str,
+    custom_system_prompt: str | None = None,
 ) -> tuple[str, list[ModelMessage]]:
     model = get_settings().chat_model
     if transcript and summary:
@@ -35,7 +42,9 @@ async def chat_with_episode(
     else:
         context_section = _CHAT_CONTEXT_NONE
 
-    system_prompt = _CHAT_SYSTEM_PROMPT.format(
+    template = _CHAT_CUSTOM_SYSTEM_PROMPT if custom_system_prompt else _CHAT_SYSTEM_PROMPT
+    system_prompt = template.format(
+        custom_system_prompt=custom_system_prompt or "",
         podcast_title=podcast_title,
         episode_title=episode_title,
         context_section=context_section,
@@ -54,6 +63,7 @@ async def chat_with_episode_stream(
     summary: str | None,
     history: list[ModelMessage],
     lang: str,
+    custom_system_prompt: str | None = None,
 ) -> AsyncIterator[tuple[str, list[ModelMessage] | None]]:
     """Yield (text_delta, None) for each streamed chunk, then ("", all_messages) at the end."""
     model = get_settings().chat_model
@@ -64,7 +74,9 @@ async def chat_with_episode_stream(
     else:
         context_section = _CHAT_CONTEXT_NONE
 
-    system_prompt = _CHAT_SYSTEM_PROMPT.format(
+    template = _CHAT_CUSTOM_SYSTEM_PROMPT if custom_system_prompt else _CHAT_SYSTEM_PROMPT
+    system_prompt = template.format(
+        custom_system_prompt=custom_system_prompt or "",
         podcast_title=podcast_title,
         episode_title=episode_title,
         context_section=context_section,
