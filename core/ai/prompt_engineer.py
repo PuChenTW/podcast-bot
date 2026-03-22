@@ -9,6 +9,15 @@ _META_PROMPT = (
     "\nOutput only the system prompt text, nothing else."
 )
 
+_CHAT_META_PROMPT = (
+    "You are a prompt engineer. Given a user's description of a podcast and their desired discussion style,"
+    " write a system prompt for an AI that will have a multi-turn conversation with the user about podcast episodes."
+    " The AI should act as a knowledgeable discussion partner, not a summarizer."
+    " Do not impose any fixed structure — let the user's description dictate the tone and approach.\n"
+    "\nUser's description: {user_description}\n"
+    "\nOutput only the system prompt text, nothing else."
+)
+
 _REFINE_PROMPT_PREFIX = """You are a prompt engineer. You have an existing system prompt for an AI podcast summarizer. Apply the user's refinement instruction to improve it.
 
 Existing prompt:
@@ -21,6 +30,14 @@ async def generate_prompt_from_description(description: str) -> str:
     model = get_settings().prompt_engineer_model
     agent = _get_agent(model, "You are a helpful assistant.")
     result = await agent.run(_META_PROMPT.format(user_description=description))
+    return result.output
+
+
+async def generate_chat_prompt_from_description(description: str) -> str:
+    """Use AI to expand a user's description into a chat system prompt for podcast discussion."""
+    model = get_settings().prompt_engineer_model
+    agent = _get_agent(model, "You are a helpful assistant.")
+    result = await agent.run(_CHAT_META_PROMPT.format(user_description=description))
     return result.output
 
 

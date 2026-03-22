@@ -15,7 +15,13 @@ web/
     jobs.py           # Trigger regenerate-summary job; poll job status
   static/
     index.html    # Single-page frontend
-    app.js        # Vanilla JS; talks to /api/* endpoints
+    app.js        # ES module entry point — imports modules/router.js
+    modules/
+      utils.js    # api(), esc(), showError(), setNavCrumb(), pollJob()
+      router.js   # Hash-based SPA router; registers hashchange + load listeners on import
+      home.js     # renderHome() — subscription list + search/subscribe
+      episodes.js # renderEpisodeList(), renderEpisodeDetail(), startRegenerate()
+      chat.js     # buildChatPanel(), streamChat() (SSE)
     style.css     # Styles
 web_main.py       # ASGI entry point: `from web.app import create_app`
 ```
@@ -29,6 +35,8 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | DELETE | `/api/subscriptions/{sub_id}` | Unsubscribe |
 | PUT | `/api/subscriptions/{sub_id}/prompt` | Update custom summarization prompt |
 | PUT | `/api/subscriptions/{sub_id}/chat-prompt` | Update custom chat system prompt |
+| POST | `/api/subscriptions/{sub_id}/generate-prompt` | AI-generate summarization prompt (returns `{prompt}`, does NOT save) |
+| POST | `/api/subscriptions/{sub_id}/generate-chat-prompt` | AI-generate chat system prompt (returns `{prompt}`, does NOT save) |
 | POST | `/api/subscriptions/{sub_id}/refresh` | Fetch RSS, upsert new episodes, return `{new_count}` |
 | GET | `/api/subscriptions/{sub_id}/episodes` | Paginated episode list (`?page=N`, page size 20) |
 | GET | `/api/podcasts/{podcast_id}/episodes/{guid}/detail` | Full episode detail (transcript + summary) |
@@ -66,7 +74,9 @@ All `{sub_id}` endpoints: `get_subscription_by_id` → 404 if None → 403 if `s
 
 ## Frontend DOM Updates
 
-`app.js` does in-place DOM mutations for subscribe/unsubscribe — no `location.hash` reload. Subscribe success appends a new card directly to the grid (or creates the grid if first subscription); unsubscribe removes the card and shows empty-state if the grid is now empty. This avoids the hashchange no-op when already on `#/`.
+Frontend uses ES modules (`<script type="module">`). FastAPI's StaticFiles serves correct MIME types — no bundler needed. `marked` is loaded from CDN as a global and accessed directly (not imported).
+
+`home.js` does in-place DOM mutations for subscribe/unsubscribe — no `location.hash` reload. Subscribe success appends a new card directly to the grid (or creates the grid if first subscription); unsubscribe removes the card and shows empty-state if the grid is now empty. This avoids the hashchange no-op when already on `#/`.
 
 ## RSS Description
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from core import database as db
 from core import feed as rss
-from core.ai.prompt_engineer import generate_prompt_from_description
+from core.ai.prompt_engineer import generate_chat_prompt_from_description, generate_prompt_from_description
 from core.feed import parse_published
 from web.auth import get_current_user
 
@@ -165,5 +165,5 @@ async def generate_chat_prompt(sub_id: str, body: GeneratePromptRequest, user_id
         raise HTTPException(status_code=403, detail="Forbidden")
     stripped_desc = body.description.strip()
     desc = f"{sub.podcast_title}. {stripped_desc}" if stripped_desc else sub.podcast_title
-    prompt = await generate_prompt_from_description(desc)
+    prompt = await generate_chat_prompt_from_description(desc)
     return {"prompt": prompt}

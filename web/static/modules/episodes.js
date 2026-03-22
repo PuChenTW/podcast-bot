@@ -6,6 +6,7 @@ function buildGeneratePanel(apiPath, targetTextarea) {
     toggleBtn.className = 'secondary';
     toggleBtn.textContent = '自動生成';
     toggleBtn.style.marginTop = '0.5rem';
+    toggleBtn.style.marginLeft = '0.5rem';
 
     const panel = document.createElement('div');
     panel.className = 'generate-panel';

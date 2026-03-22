@@ -10,7 +10,7 @@
 | `ai/summarizer.py` | `summarize_episode(title, content, custom_prompt?)` → Markdown str |
 | `ai/chat.py` | `chat_with_episode(...)` → multi-turn conversation |
 | `ai/corrector.py` | `correct_transcript(text, podcast_title, ep_title, description)` |
-| `ai/prompt_engineer.py` | `generate_prompt_from_description()`, `refine_prompt()` |
+| `ai/prompt_engineer.py` | `generate_prompt_from_description()` → summarization prompt; `generate_chat_prompt_from_description()` → discussion/chat prompt (different meta-prompts); `refine_prompt()` |
 | `ai/condenser.py` | `condense_transcript(...)` → ~10 K chars for chat context |
 | `ai/_agent.py` | LRU-cached `Agent` factory keyed on `(model, system_prompt)` |
 | `transcribers/` | Whisper + Groq backends + `AudioPipeline` + `TranscriberPipeline` fallback |
