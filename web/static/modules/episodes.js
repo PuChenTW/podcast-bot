@@ -68,6 +68,10 @@ export async function renderEpisodeList(el, subId, page = 0) {
         setNavCrumb(esc(sub.podcast_title));
         el.innerHTML = '';
 
+        const scrollable = document.createElement('div');
+        scrollable.className = 'scroll-pane';
+        el.appendChild(scrollable);
+
         // Custom prompt editor
         const promptDetails = document.createElement('details');
         promptDetails.className = 'prompt-details';
@@ -94,7 +98,7 @@ export async function renderEpisodeList(el, subId, page = 0) {
             buildGeneratePanel('/subscriptions/' + subId + '/generate-prompt', promptArea);
         promptDetails.appendChild(promptGenToggle);
         promptDetails.appendChild(promptGenPanel);
-        el.appendChild(promptDetails);
+        scrollable.appendChild(promptDetails);
 
         // Custom chat prompt editor
         const chatPromptDetails = document.createElement('details');
@@ -122,7 +126,7 @@ export async function renderEpisodeList(el, subId, page = 0) {
             buildGeneratePanel('/subscriptions/' + subId + '/generate-chat-prompt', chatPromptArea);
         chatPromptDetails.appendChild(chatGenToggle);
         chatPromptDetails.appendChild(chatGenPanel);
-        el.appendChild(chatPromptDetails);
+        scrollable.appendChild(chatPromptDetails);
 
         // Refresh button
         const refreshBtn = document.createElement('button');
@@ -140,10 +144,10 @@ export async function renderEpisodeList(el, subId, page = 0) {
                 refreshBtn.disabled = false;
             }
         });
-        el.appendChild(refreshBtn);
+        scrollable.appendChild(refreshBtn);
 
         if (episodes.length === 0 && page === 0) {
-            el.insertAdjacentHTML('beforeend', '<div class="empty-state">尚無集數，Bot 每 6 小時自動抓取。</div>');
+            scrollable.insertAdjacentHTML('beforeend', '<div class="empty-state">尚無集數，Bot 每 6 小時自動抓取。</div>');
             return;
         }
 
@@ -164,7 +168,7 @@ export async function renderEpisodeList(el, subId, page = 0) {
             });
             list.appendChild(row);
         }
-        el.appendChild(list);
+        scrollable.appendChild(list);
 
         // Pagination
         const pag = document.createElement('div');
@@ -188,7 +192,7 @@ export async function renderEpisodeList(el, subId, page = 0) {
         } else {
             pag.appendChild(document.createElement('span'));
         }
-        el.appendChild(pag);
+        scrollable.appendChild(pag);
     } catch (err) {
         showError(el, err.message);
     }
