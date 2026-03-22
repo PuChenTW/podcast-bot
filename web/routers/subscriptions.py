@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from core import database as db
 from core import feed as rss
+from core.ai.prompt_engineer import generate_prompt_from_description
 from core.feed import parse_published
 from web.auth import get_current_user
 
@@ -20,6 +21,10 @@ class PromptRequest(BaseModel):
 
 class ChatPromptRequest(BaseModel):
     prompt: str | None
+
+
+class GeneratePromptRequest(BaseModel):
+    description: str = ""
 
 
 @router.get("/podcasts/search")
@@ -133,3 +138,32 @@ async def update_chat_prompt(sub_id: str, body: ChatPromptRequest, user_id: str 
         raise HTTPException(status_code=403, detail="Forbidden")
     await db.set_subscription_chat_prompt(sub_id, body.prompt)
     return {"ok": True}
+
+
+# Two endpoints mirror the existing /prompt vs /chat-prompt split,
+# allowing future divergence (e.g. chat-specific meta-prompt).
+# Note: AI generation may take 5–30 s; no timeout guard — acceptable for now.
+@router.post("/subscriptions/{sub_id}/generate-prompt")
+async def generate_prompt(sub_id: str, body: GeneratePromptRequest, user_id: str = Depends(get_current_user)):
+    sub = await db.get_subscription_by_id(sub_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    stripped_desc = body.description.strip()
+    desc = f"{sub.podcast_title}. {stripped_desc}" if stripped_desc else sub.podcast_title
+    prompt = await generate_prompt_from_description(desc)
+    return {"prompt": prompt}
+
+
+@router.post("/subscriptions/{sub_id}/generate-chat-prompt")
+async def generate_chat_prompt(sub_id: str, body: GeneratePromptRequest, user_id: str = Depends(get_current_user)):
+    sub = await db.get_subscription_by_id(sub_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    stripped_desc = body.description.strip()
+    desc = f"{sub.podcast_title}. {stripped_desc}" if stripped_desc else sub.podcast_title
+    prompt = await generate_prompt_from_description(desc)
+    return {"prompt": prompt}

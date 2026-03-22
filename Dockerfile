@@ -19,7 +19,5 @@ COPY bot_main.py web_main.py ./
 COPY bot/ ./bot/
 COPY web/ ./web/
 COPY core/ ./core/
-COPY migrate/ ./migrate/
-COPY migrations/ ./migrations/
 
 CMD ["uv", "run", "python", "bot_main.py"]
