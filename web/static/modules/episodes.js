@@ -1,6 +1,54 @@
 import { api, esc, showError, setNavCrumb, pollJob } from './utils.js';
 import { buildChatPanel } from './chat.js';
 
+function buildGeneratePanel(apiPath, targetTextarea) {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'secondary';
+    toggleBtn.textContent = '自動生成';
+    toggleBtn.style.marginTop = '0.5rem';
+
+    const panel = document.createElement('div');
+    panel.className = 'generate-panel';
+    panel.hidden = true;
+    panel.style.marginTop = '0.5rem';
+
+    const descArea = document.createElement('textarea');
+    descArea.className = 'prompt-area';
+    descArea.placeholder = '（可選）描述你想要的風格，留空則 AI 根據 Podcast 標題自動判斷';
+    descArea.rows = 2;
+
+    const genBtn = document.createElement('button');
+    genBtn.className = 'secondary';
+    genBtn.textContent = '生成';
+    genBtn.style.marginTop = '0.25rem';
+
+    genBtn.addEventListener('click', async () => {
+        genBtn.disabled = true;
+        genBtn.textContent = '生成中…';
+        try {
+            const data = await api(apiPath, {
+                method: 'POST',
+                body: JSON.stringify({ description: descArea.value }),
+            });
+            targetTextarea.value = data.prompt;
+            genBtn.textContent = '生成';
+        } catch (err) {
+            genBtn.textContent = '錯誤：' + err.message;
+            setTimeout(() => { genBtn.textContent = '生成'; }, 2000);
+        } finally {
+            genBtn.disabled = false;
+        }
+    });
+
+    toggleBtn.addEventListener('click', () => {
+        panel.hidden = !panel.hidden;
+    });
+
+    panel.appendChild(descArea);
+    panel.appendChild(genBtn);
+    return { toggleBtn, panel };
+}
+
 // ---- Episode list ----
 export async function renderEpisodeList(el, subId, page = 0) {
     el.innerHTML = '<p class="spinner">載入中…</p>';
@@ -41,6 +89,10 @@ export async function renderEpisodeList(el, subId, page = 0) {
         });
         promptDetails.appendChild(promptArea);
         promptDetails.appendChild(saveBtn);
+        const { toggleBtn: promptGenToggle, panel: promptGenPanel } =
+            buildGeneratePanel('/subscriptions/' + subId + '/generate-prompt', promptArea);
+        promptDetails.appendChild(promptGenToggle);
+        promptDetails.appendChild(promptGenPanel);
         el.appendChild(promptDetails);
 
         // Custom chat prompt editor
@@ -65,6 +117,10 @@ export async function renderEpisodeList(el, subId, page = 0) {
         });
         chatPromptDetails.appendChild(chatPromptArea);
         chatPromptDetails.appendChild(chatSaveBtn);
+        const { toggleBtn: chatGenToggle, panel: chatGenPanel } =
+            buildGeneratePanel('/subscriptions/' + subId + '/generate-chat-prompt', chatPromptArea);
+        chatPromptDetails.appendChild(chatGenToggle);
+        chatPromptDetails.appendChild(chatGenPanel);
         el.appendChild(chatPromptDetails);
 
         // Refresh button
