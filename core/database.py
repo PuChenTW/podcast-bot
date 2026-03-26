@@ -32,7 +32,12 @@ class SubscriptionWithChat(Subscription):
 async def _get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(get_settings().database_url)
+        _pool = await asyncpg.create_pool(
+            get_settings().database_url,
+            min_size=2,
+            max_size=10,
+            command_timeout=30,
+        )
     return _pool
 
 
@@ -57,6 +62,13 @@ def _parse_dt(value: str | datetime | None) -> datetime | None:
         return datetime.fromisoformat(str(value))
     except (ValueError, TypeError):
         return None
+
+
+async def close_db() -> None:
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
 
 
 async def init_db() -> None:

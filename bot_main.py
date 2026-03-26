@@ -23,7 +23,7 @@ from bot.handlers import (
 )
 from bot.scheduler import start_scheduler, stop_scheduler
 from core.config import get_settings
-from core.database import init_db
+from core.database import close_db, init_db
 from core.transcribers import AudioPipeline, GroqTranscriber, Transcriber, TranscriberPipeline, WhisperTranscriber
 
 logging.basicConfig(
@@ -64,6 +64,7 @@ async def post_init(app: Application) -> None:
 
 async def post_shutdown(app: Application) -> None:
     await stop_scheduler()
+    await close_db()
 
 
 def main() -> None:

@@ -15,6 +15,7 @@ async def lifespan(app: FastAPI):
         if not os.environ.get(var):
             raise RuntimeError(f"Missing required env var: {var}")
     yield
+    await db.close_db()
 
 
 def create_app() -> FastAPI:
