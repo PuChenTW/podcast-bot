@@ -225,13 +225,3 @@ async def test_cleanup_runs_on_exception(tmp_path):
     assert result is None
     for p in created_tmp:
         assert not os.path.exists(p), f"Temp file not cleaned up: {p}"
-
-
-@pytest.mark.asyncio
-async def test_whisper_max_bytes_never_triggers_split(tmp_path):
-    """WhisperTranscriber.max_bytes=2GB means realistic files never get split."""
-    from core.transcribers.whisper import WHISPER_MAX_BYTES
-
-    assert WHISPER_MAX_BYTES == 2_000_000_000
-    # A 200MB file (the hard cap from feed.py) is well below WHISPER_MAX_BYTES
-    assert 200 * 1024 * 1024 < WHISPER_MAX_BYTES

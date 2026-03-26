@@ -67,7 +67,10 @@ def _parse_dt(value: str | datetime | None) -> datetime | None:
 async def close_db() -> None:
     global _pool
     if _pool is not None:
-        await _pool.close()
+        try:
+            await _pool.close()
+        except Exception:
+            logger.warning("Error closing DB pool", exc_info=True)
         _pool = None
 
 

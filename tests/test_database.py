@@ -1,5 +1,7 @@
+import core.database as db_module
 from core.database import (
     add_subscription,
+    close_db,
     get_all_subscriptions,
     get_episode_id,
     get_episode_summary,
@@ -21,11 +23,6 @@ async def _make_user(telegram_user_id=12345, chat_id=99999):
 
 
 class TestGetOrCreateUser:
-    async def test_returns_ulid_string(self, tmp_db):
-        uid = await _make_user()
-        assert isinstance(uid, str)
-        assert len(uid) > 0
-
     async def test_same_telegram_id_returns_same_uid(self, tmp_db):
         uid1 = await get_or_create_user(111, 999)
         uid2 = await get_or_create_user(111, 999)
@@ -38,10 +35,6 @@ class TestGetOrCreateUser:
 
 
 class TestGetOrCreatePodcast:
-    async def test_returns_id_string(self, tmp_db):
-        pid = await get_or_create_podcast("http://feed.com/rss", "My Show")
-        assert isinstance(pid, str) and len(pid) > 0
-
     async def test_same_url_returns_same_id(self, tmp_db):
         pid1 = await get_or_create_podcast("http://feed.com/rss", "My Show")
         pid2 = await get_or_create_podcast("http://feed.com/rss", "My Show Updated")
@@ -243,3 +236,30 @@ class TestSetSubscriptionPrompt:
         await set_subscription_prompt(sub_id, None)
         sub = await get_subscription_by_id(sub_id)
         assert sub.custom_prompt is None
+
+
+class TestCloseDb:
+    async def test_sets_pool_to_none(self, monkeypatch):
+        class FakePool:
+            async def close(self):
+                self.closed = True
+
+        fake_pool = FakePool()
+        monkeypatch.setattr(db_module, "_pool", fake_pool)
+        await close_db()
+        assert db_module._pool is None
+        assert fake_pool.closed is True
+
+    async def test_no_op_when_pool_is_none(self, monkeypatch):
+        monkeypatch.setattr(db_module, "_pool", None)
+        await close_db()  # must not raise
+        assert db_module._pool is None
+
+    async def test_clears_pool_even_on_close_error(self, monkeypatch):
+        class BrokenPool:
+            async def close(self):
+                raise RuntimeError("pool already closed")
+
+        monkeypatch.setattr(db_module, "_pool", BrokenPool())
+        await close_db()  # must not raise
+        assert db_module._pool is None

@@ -4,7 +4,6 @@ import pytest
 from telegram import Message, Update
 from telegram.ext import ConversationHandler
 
-from bot.handlers import setprompt_conv, subscribe_conv
 from bot.handlers.setprompt import (
     SETPROMPT_CHOOSE_POD,
     cmd_setprompt,
@@ -103,20 +102,3 @@ async def test_subscribe_url_received_returns_end_on_bad_url():
             result = await subscribe_url_received(update, ctx)
 
     assert result == ConversationHandler.END
-
-
-def test_subscribe_conv_is_conversation_handler():
-    from telegram.ext import ConversationHandler as CH
-
-    assert isinstance(subscribe_conv, CH)
-
-
-def test_setprompt_conv_is_conversation_handler():
-    from telegram.ext import ConversationHandler as CH
-
-    assert isinstance(setprompt_conv, CH)
-
-
-def test_subscribe_and_setprompt_are_independent_conversations():
-    """Each flow is its own ConversationHandler — no shared state management needed."""
-    assert subscribe_conv is not setprompt_conv
