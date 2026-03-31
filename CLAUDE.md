@@ -29,6 +29,7 @@ make migrate-status          # show applied/pending migration state
 make docker-build            # build Docker image
 make docker-up               # start bot in background (docker compose up -d)
 make docker-logs             # tail container logs
+make sync                    # install dev dependencies (uv sync --group dev --all-extras)
 ```
 
 ## Docker

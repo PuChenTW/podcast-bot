@@ -30,6 +30,10 @@ Episode metadata is stored in `context.user_data`, NOT `context.bot_data` — bo
 
 `SETPROMPT_REFINE` (state 5) is reachable from two states: `SETPROMPT_CHOOSE_MODE` (when a `custom_prompt` already exists) and `SETPROMPT_AUTO_REVIEW` (via the Refine button). The loop continues until the user presses Save, which persists and ends the conversation.
 
+## /chat handler
+
+Lives in `bot/handlers/chat.py`.
+
 ## /chat user_data schema
 
 `context.user_data["chat_session"]` holds: `episode_title`, `podcast_title`, `transcript`, `summary`, `history` (list of pydantic-ai `ModelMessage`), `lang`, `chat_prompt`. Cleared on `/end` or `chat:end` callback. Keys `"chat_eps"` / `"chat_offset"` are navigation state (each item also carries `chat_prompt`), cleared after episode selection.
