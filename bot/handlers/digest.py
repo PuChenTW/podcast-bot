@@ -161,6 +161,14 @@ async def digest_ep_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = await db.get_or_create_user(user.id, update.effective_chat.id)
     ep = ep_data[episode_index]
     guid = ep["entry"].get("id") or ep["entry"].get("link") or ep["entry"].get("title", "")
+
+    episode_id = await db.get_episode_id(sub.podcast_id, guid)
+    cached_summary = await db.get_episode_summary(user_id, episode_id) if episode_id else None
+    if cached_summary:
+        text = format_summary(ep["podcast_title"], ep["title"], cached_summary)
+        await query.edit_message_text(text, parse_mode="HTML")
+        return ConversationHandler.END
+
     has_transcript = bool(await db.get_episode_transcript(sub.podcast_id, guid))
     state_msg = gettext(lang, "summarizing") if has_transcript else gettext(lang, "transcribing")
     await query.edit_message_text(
