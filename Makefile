@@ -1,4 +1,4 @@
-.PHONY: bot-run web-run migrate-up migrate-down migrate-status test lint format docker-build docker-up docker-down docker-logs docker-restart
+.PHONY: bot-run web-run migrate-up migrate-down migrate-status drive-backfill test lint format docker-build docker-up docker-down docker-logs docker-restart
 
 bot-run:
 	uv run python bot_main.py
@@ -15,6 +15,8 @@ migrate-down:
 migrate-status:
 	uv run python -m migrate status
 
+drive-backfill:
+	uv run python scripts/backfill_drive.py
 
 test:
 	uv run pytest tests/ -v -n auto
