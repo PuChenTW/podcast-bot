@@ -22,6 +22,8 @@ class Settings:
     prompt_engineer_model: str
     condenser_model: str
     database_url: str
+    google_service_account_json: str | None
+    google_drive_folder_id: str | None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -67,6 +69,8 @@ class Settings:
             prompt_engineer_model=os.getenv("PROMPT_ENGINEER_MODEL", base),
             condenser_model=os.getenv("CONDENSER_MODEL", base),
             database_url=database_url,
+            google_service_account_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"),
+            google_drive_folder_id=os.getenv("GOOGLE_DRIVE_FOLDER_ID"),
         )
 
 
