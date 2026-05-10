@@ -32,7 +32,7 @@ def _build_service(json_path: str):
 
     creds = service_account.Credentials.from_service_account_file(
         json_path,
-        scopes=["https://www.googleapis.com/auth/drive.file"],
+        scopes=["https://www.googleapis.com/auth/drive"],
     )
     return build("drive", "v3", credentials=creds)
 
