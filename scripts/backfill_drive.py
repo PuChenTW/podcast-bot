@@ -3,14 +3,13 @@
 import asyncio
 import logging
 
+import asyncpg
 from dotenv import load_dotenv
 
+from core.config import get_settings
+from core.google_drive import upload_episode
+
 load_dotenv()
-
-import asyncpg  # noqa: E402
-
-from core.config import get_settings  # noqa: E402
-from core.google_drive import upload_episode  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

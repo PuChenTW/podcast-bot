@@ -16,7 +16,7 @@ migrate-status:
 	uv run python -m migrate status
 
 drive-backfill:
-	uv run python scripts/backfill_drive.py
+	uv run python -m scripts.backfill_drive
 
 test:
 	uv run pytest tests/ -v -n auto
