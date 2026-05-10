@@ -74,7 +74,7 @@ async def upload_episode(
             "parents": [settings.google_drive_folder_id],
             "mimeType": "text/markdown",
         }
-        result = service.files().create(body=file_meta, media_body=media, fields="id").execute()
+        result = service.files().create(body=file_meta, media_body=media, fields="id", supportsAllDrives=True).execute()
         return result["id"]
 
     try:
