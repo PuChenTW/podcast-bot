@@ -37,7 +37,7 @@ def test_settings_drive_fields_optional():
 @pytest.mark.asyncio
 async def test_upload_returns_none_when_not_configured(monkeypatch):
     monkeypatch.setattr(_config, "_settings", _make_settings(json_path=None, folder_id=None))
-    result = await upload_episode("Pod", "Ep", "2024-01-01", "summary text", "transcript text", "pid", "guid")
+    result = await upload_episode("Pod", "Ep", "2024-01-01", "summary text", "transcript text")
     assert result is None
 
 
@@ -56,7 +56,7 @@ async def test_upload_calls_drive_api(monkeypatch):
     monkeypatch.setattr(gd_module, "_drive_service", None)
 
     with patch("core.google_drive._build_service", return_value=mock_service):
-        result = await upload_episode("Pod", "Ep1", "2024-01-01", "sum", "trans", "pid", "guid1")
+        result = await upload_episode("Pod", "Ep1", "2024-01-01", "sum", "trans")
 
     assert result == fake_file_id
     mock_files.create.assert_called_once()

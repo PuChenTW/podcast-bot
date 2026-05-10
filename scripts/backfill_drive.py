@@ -57,8 +57,6 @@ async def main() -> None:
             published_at=published,
             summary=row["summary"],
             transcript=row["transcript"],
-            podcast_id=row["podcast_id"],
-            guid=row["guid"],
         )
         if file_id:
             uploaded += 1

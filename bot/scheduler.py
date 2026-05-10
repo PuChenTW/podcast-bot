@@ -34,7 +34,7 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             title=episode.title,
             published_at=episode.published,
             summary=summary,
-            transcript=episode.transcript,  # None when no real transcript was found
+            transcript=episode.transcript,
             description=episode.description,
         )
         await upload_episode(
@@ -43,8 +43,6 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             episode.published,
             summary,
             episode.transcript,
-            sub.podcast_id,
-            episode.guid,
         )
     except Exception as exc:
         logger.error("Error processing episode %s: %s", episode.title, exc)

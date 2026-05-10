@@ -2,12 +2,14 @@ import asyncio
 import io
 import logging
 import re
+import threading
 
 from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 _drive_service = None
+_lock = threading.Lock()
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
@@ -38,8 +40,9 @@ def _build_service(json_path: str):
 def _get_service():
     global _drive_service
     settings = get_settings()
-    if _drive_service is None and settings.google_service_account_json:
-        _drive_service = _build_service(settings.google_service_account_json)
+    with _lock:
+        if _drive_service is None and settings.google_service_account_json:
+            _drive_service = _build_service(settings.google_service_account_json)
     return _drive_service
 
 
@@ -49,8 +52,6 @@ async def upload_episode(
     published_at: str | None,
     summary: str | None,
     transcript: str | None,
-    podcast_id: str,
-    guid: str,
 ) -> str | None:
     settings = get_settings()
     if not settings.google_service_account_json or not settings.google_drive_folder_id:
@@ -77,7 +78,7 @@ async def upload_episode(
         return result["id"]
 
     try:
-        file_id = await asyncio.get_event_loop().run_in_executor(None, _upload)
+        file_id = await asyncio.get_running_loop().run_in_executor(None, _upload)
         logger.info("Uploaded %s to Drive: %s", filename, file_id)
         return file_id
     except Exception as exc:
