@@ -75,7 +75,13 @@ async def upload_episode(
             "mimeType": "text/markdown",
         }
         result = service.files().create(body=file_meta, media_body=media, fields="id", supportsAllDrives=True).execute()
-        return result["id"]
+        file_id = result["id"]
+        service.permissions().create(
+            fileId=file_id,
+            body={"role": "owner", "type": "user", "emailAddress": settings.google_drive_owner_email},
+            transferOwnership=True,
+        ).execute()
+        return file_id
 
     try:
         file_id = await asyncio.get_running_loop().run_in_executor(None, _upload)

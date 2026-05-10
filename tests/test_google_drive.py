@@ -7,7 +7,7 @@ from core.config import Settings
 from core.google_drive import upload_episode
 
 
-def _make_settings(json_path=None, folder_id=None):
+def _make_settings(json_path=None, folder_id=None, owner_email=None):
     return Settings(
         telegram_bot_token="t",
         gemini_api_key="g",
@@ -25,6 +25,7 @@ def _make_settings(json_path=None, folder_id=None):
         database_url="postgresql://x",
         google_service_account_json=json_path,
         google_drive_folder_id=folder_id,
+        google_drive_owner_email=owner_email,
     )
 
 
@@ -43,13 +44,11 @@ async def test_upload_returns_none_when_not_configured(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_upload_calls_drive_api(monkeypatch):
-    monkeypatch.setattr(_config, "_settings", _make_settings(json_path="/fake.json", folder_id="folder123"))
+    monkeypatch.setattr(_config, "_settings", _make_settings(json_path="/fake.json", folder_id="folder123", owner_email="owner@example.com"))
 
     fake_file_id = "file-abc-123"
-    mock_files = MagicMock()
-    mock_files.create.return_value.execute.return_value = {"id": fake_file_id}
     mock_service = MagicMock()
-    mock_service.files.return_value = mock_files
+    mock_service.files.return_value.create.return_value.execute.return_value = {"id": fake_file_id}
 
     import core.google_drive as gd_module
 
@@ -59,7 +58,7 @@ async def test_upload_calls_drive_api(monkeypatch):
         result = await upload_episode("Pod", "Ep1", "2024-01-01", "sum", "trans")
 
     assert result == fake_file_id
-    mock_files.create.assert_called_once()
-    call_kwargs = mock_files.create.call_args.kwargs
-    assert call_kwargs["body"]["name"] == "Pod_Ep1.md"
-    assert call_kwargs["body"]["parents"] == ["folder123"]
+    create_kwargs = mock_service.files.return_value.create.call_args.kwargs
+    assert create_kwargs["body"]["name"] == "Pod_Ep1.md"
+    assert create_kwargs["body"]["parents"] == ["folder123"]
+    mock_service.permissions.return_value.create.assert_called_once()

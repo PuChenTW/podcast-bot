@@ -24,6 +24,7 @@ class Settings:
     database_url: str
     google_service_account_json: str | None
     google_drive_folder_id: str | None
+    google_drive_owner_email: str | None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -71,6 +72,7 @@ class Settings:
             database_url=database_url,
             google_service_account_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"),
             google_drive_folder_id=os.getenv("GOOGLE_DRIVE_FOLDER_ID"),
+            google_drive_owner_email=os.getenv("GOOGLE_DRIVE_OWNER_EMAIL"),
         )
 
 
