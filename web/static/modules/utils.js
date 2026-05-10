@@ -36,8 +36,13 @@ export function setNavCrumb(label) {
     if (!navbar) return;
     navbar.querySelectorAll('.nav-sep, .nav-crumb').forEach(el => el.remove());
     if (label) {
-        navbar.insertAdjacentHTML('beforeend',
-            `<span class="nav-sep">/</span><span class="nav-crumb">${label}</span>`);
+        const toggle = navbar.querySelector('#theme-toggle');
+        const html = `<span class="nav-sep">/</span><span class="nav-crumb">${label}</span>`;
+        if (toggle) {
+            toggle.insertAdjacentHTML('beforebegin', html);
+        } else {
+            navbar.insertAdjacentHTML('beforeend', html);
+        }
     }
 }
 
