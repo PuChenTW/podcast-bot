@@ -11,6 +11,7 @@ from core.ai.corrector import correct_transcript
 from core.ai.summarizer import summarize_episode
 from core.config import get_settings
 from core.feed import fetch_new_episodes
+from core.google_drive import upload_episode
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,15 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             summary=summary,
             transcript=episode.transcript,  # None when no real transcript was found
             description=episode.description,
+        )
+        await upload_episode(
+            sub.podcast_title,
+            episode.title,
+            episode.published,
+            summary,
+            episode.transcript,
+            sub.podcast_id,
+            episode.guid,
         )
     except Exception as exc:
         logger.error("Error processing episode %s: %s", episode.title, exc)
