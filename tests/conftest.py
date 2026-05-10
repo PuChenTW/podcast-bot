@@ -39,9 +39,8 @@ def _fake_settings(monkeypatch):
         prompt_engineer_model="google-gla:gemini-flash-lite-latest",
         condenser_model="google-gla:gemini-flash-lite-latest",
         database_url="postgresql://fake@localhost/fake",
-        google_service_account_json=None,
+        google_drive_token_path=None,
         google_drive_folder_id=None,
-        google_drive_owner_email=None,
     )
     monkeypatch.setattr(_config, "_settings", fake)
 

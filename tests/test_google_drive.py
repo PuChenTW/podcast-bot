@@ -7,7 +7,7 @@ from core.config import Settings
 from core.google_drive import upload_episode
 
 
-def _make_settings(json_path=None, folder_id=None, owner_email=None):
+def _make_settings(token_path=None, folder_id=None):
     return Settings(
         telegram_bot_token="t",
         gemini_api_key="g",
@@ -23,28 +23,27 @@ def _make_settings(json_path=None, folder_id=None, owner_email=None):
         prompt_engineer_model="m",
         condenser_model="m",
         database_url="postgresql://x",
-        google_service_account_json=json_path,
+        google_drive_token_path=token_path,
         google_drive_folder_id=folder_id,
-        google_drive_owner_email=owner_email,
     )
 
 
 def test_settings_drive_fields_optional():
     s = _make_settings()
-    assert s.google_service_account_json is None
+    assert s.google_drive_token_path is None
     assert s.google_drive_folder_id is None
 
 
 @pytest.mark.asyncio
 async def test_upload_returns_none_when_not_configured(monkeypatch):
-    monkeypatch.setattr(_config, "_settings", _make_settings(json_path=None, folder_id=None))
+    monkeypatch.setattr(_config, "_settings", _make_settings(token_path=None, folder_id=None))
     result = await upload_episode("Pod", "Ep", "2024-01-01", "summary text", "transcript text")
     assert result is None
 
 
 @pytest.mark.asyncio
 async def test_upload_calls_drive_api(monkeypatch):
-    monkeypatch.setattr(_config, "_settings", _make_settings(json_path="/fake.json", folder_id="folder123", owner_email="owner@example.com"))
+    monkeypatch.setattr(_config, "_settings", _make_settings(token_path="/fake/token.json", folder_id="folder123"))
 
     fake_file_id = "file-abc-123"
     mock_service = MagicMock()
@@ -61,4 +60,3 @@ async def test_upload_calls_drive_api(monkeypatch):
     create_kwargs = mock_service.files.return_value.create.call_args.kwargs
     assert create_kwargs["body"]["name"] == "Pod_Ep1.md"
     assert create_kwargs["body"]["parents"] == ["folder123"]
-    mock_service.permissions.return_value.create.assert_called_once()

@@ -1,4 +1,4 @@
-.PHONY: bot-run web-run migrate-up migrate-down migrate-status drive-backfill test lint format docker-build docker-up docker-down docker-logs docker-restart
+.PHONY: bot-run web-run migrate-up migrate-down migrate-status drive-auth drive-backfill test lint format docker-build docker-up docker-down docker-logs docker-restart
 
 bot-run:
 	uv run python bot_main.py
@@ -14,6 +14,9 @@ migrate-down:
 
 migrate-status:
 	uv run python -m migrate status
+
+drive-auth:
+	uv run python -m scripts.drive_auth --client-secret $(client_secret) --token $(token)
 
 drive-backfill:
 	uv run python -m scripts.backfill_drive

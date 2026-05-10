@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 async def main() -> None:
     settings = get_settings()
-    if not settings.google_service_account_json or not settings.google_drive_folder_id:
-        print("ERROR: GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_DRIVE_FOLDER_ID must be set in .env")
+    if not settings.google_drive_token_path or not settings.google_drive_folder_id:
+        print("ERROR: GOOGLE_DRIVE_TOKEN_PATH and GOOGLE_DRIVE_FOLDER_ID must be set in .env")
         return
 
     pool = await asyncpg.create_pool(settings.database_url)

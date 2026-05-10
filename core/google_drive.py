@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 _drive_service = None
 _lock = threading.Lock()
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
 def _safe_filename(podcast: str, episode: str) -> str:
@@ -26,14 +27,16 @@ def _build_markdown(podcast_title: str, episode_title: str, published_at: str | 
     return f"# {episode_title}\n**Podcast:** {podcast_title}\n**Published:** {published_at or 'Unknown'}\n\n## Summary\n{summary_section}\n\n## Transcript\n{transcript_section}\n"
 
 
-def _build_service(json_path: str):
-    from google.oauth2 import service_account
+def _build_service(token_path: str):
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
 
-    creds = service_account.Credentials.from_service_account_file(
-        json_path,
-        scopes=["https://www.googleapis.com/auth/drive"],
-    )
+    creds = Credentials.from_authorized_user_file(token_path, _SCOPES)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        with open(token_path, "w") as f:
+            f.write(creds.to_json())
     return build("drive", "v3", credentials=creds)
 
 
@@ -41,8 +44,8 @@ def _get_service():
     global _drive_service
     settings = get_settings()
     with _lock:
-        if _drive_service is None and settings.google_service_account_json:
-            _drive_service = _build_service(settings.google_service_account_json)
+        if _drive_service is None and settings.google_drive_token_path:
+            _drive_service = _build_service(settings.google_drive_token_path)
     return _drive_service
 
 
@@ -54,7 +57,7 @@ async def upload_episode(
     transcript: str | None,
 ) -> str | None:
     settings = get_settings()
-    if not settings.google_service_account_json or not settings.google_drive_folder_id:
+    if not settings.google_drive_token_path or not settings.google_drive_folder_id:
         return None
 
     filename = _safe_filename(podcast_title, episode_title)
@@ -74,14 +77,8 @@ async def upload_episode(
             "parents": [settings.google_drive_folder_id],
             "mimeType": "text/markdown",
         }
-        result = service.files().create(body=file_meta, media_body=media, fields="id", supportsAllDrives=True).execute()
-        file_id = result["id"]
-        service.permissions().create(
-            fileId=file_id,
-            body={"role": "owner", "type": "user", "emailAddress": settings.google_drive_owner_email},
-            transferOwnership=True,
-        ).execute()
-        return file_id
+        result = service.files().create(body=file_meta, media_body=media, fields="id").execute()
+        return result["id"]
 
     try:
         file_id = await asyncio.get_running_loop().run_in_executor(None, _upload)
