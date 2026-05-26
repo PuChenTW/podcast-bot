@@ -37,13 +37,14 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             transcript=episode.transcript,
             description=episode.description,
         )
-        await upload_episode(
-            sub.podcast_title,
-            episode.title,
-            episode.published,
-            summary,
-            episode.transcript,
-        )
+        if get_settings().google_drive_enabled:
+            await upload_episode(
+                sub.podcast_title,
+                episode.title,
+                episode.published,
+                summary,
+                episode.transcript,
+            )
     except Exception as exc:
         logger.error("Error processing episode %s: %s", episode.title, exc)
         # Still mark as seen to avoid retrying broken episodes indefinitely
