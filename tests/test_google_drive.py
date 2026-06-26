@@ -13,6 +13,8 @@ def _make_settings(token_path=None, folder_id=None):
         gemini_api_key="g",
         ai_model="m",
         whisper_model="base",
+        nemotron_model_dir=None,
+        nemotron_language="auto",
         poll_interval_seconds=21600,
         admin_user_id=1,
         groq_api_key=None,
@@ -23,6 +25,7 @@ def _make_settings(token_path=None, folder_id=None):
         prompt_engineer_model="m",
         condenser_model="m",
         database_url="postgresql://x",
+        google_drive_enabled=True,
         google_drive_token_path=token_path,
         google_drive_folder_id=folder_id,
     )

@@ -12,6 +12,8 @@ class Settings:
     gemini_api_key: str
     ai_model: str
     whisper_model: str
+    nemotron_model_dir: str | None
+    nemotron_language: str
     poll_interval_seconds: int
     admin_user_id: int
     groq_api_key: str | None
@@ -49,10 +51,14 @@ class Settings:
         groq_api_key = os.getenv("GROQ_API_KEY")
         transcriber_backend = os.getenv("TRANSCRIBER", "whisper").lower()
 
-        if transcriber_backend not in ("whisper", "groq"):
-            raise RuntimeError(f"Invalid TRANSCRIBER value '{transcriber_backend}': must be 'whisper' or 'groq'")
+        nemotron_model_dir = os.getenv("NEMOTRON_MODEL_DIR")
+
+        if transcriber_backend not in ("whisper", "groq", "nemotron"):
+            raise RuntimeError(f"Invalid TRANSCRIBER value '{transcriber_backend}': must be 'whisper', 'groq', or 'nemotron'")
         if transcriber_backend == "groq" and not groq_api_key:
             raise RuntimeError("GROQ_API_KEY is required when TRANSCRIBER=groq")
+        if transcriber_backend == "nemotron" and not nemotron_model_dir:
+            raise RuntimeError("NEMOTRON_MODEL_DIR is required when TRANSCRIBER=nemotron")
 
         base = os.getenv("AI_MODEL", "google-gla:gemini-flash-lite-latest")
         return cls(
@@ -60,6 +66,8 @@ class Settings:
             gemini_api_key=gemini_key,
             ai_model=base,
             whisper_model=os.getenv("WHISPER_MODEL", "base"),
+            nemotron_model_dir=nemotron_model_dir,
+            nemotron_language=os.getenv("NEMOTRON_LANGUAGE", "auto"),
             poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "21600")),
             admin_user_id=int(admin_user_id),
             groq_api_key=groq_api_key,

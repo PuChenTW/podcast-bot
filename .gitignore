@@ -9,3 +9,4 @@ podcast_bot.db*
 .superpowers
 docs/superpowers/
 .playwright-mcp
+models/

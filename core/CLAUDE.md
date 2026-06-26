@@ -75,4 +75,6 @@ All AI ops read model names from `get_settings()` and use `_get_agent(model, sys
 
 ## Transcriber wiring
 
-`TranscriberPipeline` has no knowledge of which backends to use — wiring happens in `bot_main.py` via `_build_transcriber()`. `core.transcribers` exports: `AudioPipeline`, `ChunkTranscriber`, `Transcriber`, `WhisperTranscriber`, `GroqTranscriber`, `TranscriberPipeline`.
+`TranscriberPipeline` has no knowledge of which backends to use — wiring happens in `bot_main.py` via `_build_transcriber()`. `core.transcribers` exports: `AudioPipeline`, `ChunkTranscriber`, `Transcriber`, `WhisperTranscriber`, `GroqTranscriber`, `NemotronTranscriber`, `TranscriberPipeline`.
+
+`NemotronTranscriber` runs NVIDIA Nemotron-3.5 streaming ASR locally via sherpa-onnx (CPU, incl. Apple Silicon — no CUDA; RTF ~0.06, multilingual, emits punctuation/casing). It decodes any input to 16 kHz mono via ffmpeg internally, so it only advertises `accepted_formats=("wav",)`. The `sherpa-onnx` PyPI wheel needs `sherpa-onnx-core` for its bundled libonnxruntime — both are pinned in `pyproject.toml` because uv does not auto-resolve `sherpa-onnx-core` from `sherpa-onnx` metadata.

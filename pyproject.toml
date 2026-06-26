@@ -21,6 +21,8 @@ bot = [
     "feedparser>=6.0",
     "groq>=0.8",
     "python-telegram-bot>=20.0",
+    "sherpa-onnx>=1.13.3",
+    "sherpa-onnx-core>=1.13.3",  # bundles libonnxruntime; uv does not auto-resolve it from sherpa-onnx metadata
 ]
 web = [
     "fastapi>=0.115",

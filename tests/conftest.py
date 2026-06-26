@@ -29,6 +29,8 @@ def _fake_settings(monkeypatch):
         gemini_api_key="fake-gemini-key",
         ai_model="google-gla:gemini-flash-lite-latest",
         whisper_model="base",
+        nemotron_model_dir=None,
+        nemotron_language="auto",
         poll_interval_seconds=21600,
         admin_user_id=123,
         groq_api_key=None,

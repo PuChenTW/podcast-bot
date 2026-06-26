@@ -30,6 +30,7 @@ make docker-build            # build Docker image
 make docker-up               # start bot in background (docker compose up -d)
 make docker-logs             # tail container logs
 make sync                    # install dev dependencies (uv sync --group dev --all-extras)
+make download-nemotron       # fetch the Nemotron ASR model into models/ (needed for TRANSCRIBER=nemotron)
 ```
 
 ## Docker
@@ -75,13 +76,19 @@ RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() �
 | `CORRECTOR_MODEL` | `AI_MODEL` | Override model for transcript correction only |
 | `PROMPT_ENGINEER_MODEL` | `AI_MODEL` | Override model for `/setprompt` AI generation only |
 | `CONDENSER_MODEL` | `AI_MODEL` | Override model for transcript condensation only |
-| `TRANSCRIBER` | `whisper` | `whisper` or `groq` |
+| `TRANSCRIBER` | `whisper` | `whisper`, `groq`, or `nemotron` |
 | `WHISPER_MODEL` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
 | `GROQ_API_KEY` | — | Required when `TRANSCRIBER=groq` |
+| `NEMOTRON_MODEL_DIR` | — | Required when `TRANSCRIBER=nemotron`; sherpa-onnx model dir (encoder/decoder/joiner .onnx + tokens.txt) |
+| `NEMOTRON_LANGUAGE` | `auto` | Per-stream language hint: `en`/`zh`/`ja`/… or `auto` |
 | `DATABASE_URL` | required | asyncpg connection string (e.g. `postgresql://user:pass@localhost/dbname`) |
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
 | `ADMIN_USER_ID` | required | Telegram user ID for `/reload` |
 | `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
+
+### Nemotron ASR model
+
+`models/` is git-ignored — the Nemotron bundle (~665 MB) is **not** committed. On a fresh clone or new deploy, run `make download-nemotron` (downloads `models/nemotron-3.5-ml/` from Hugging Face), then set `TRANSCRIBER=nemotron` and `NEMOTRON_MODEL_DIR=./models/nemotron-3.5-ml`. `scripts/download_nemotron.py` takes `--chunk {80,160,560,1120}ms` and `--no-int8`. For Docker, mount the model dir as a volume (it lives on the host, not in the image).
 
 ## Testing
 

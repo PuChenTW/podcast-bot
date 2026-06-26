@@ -1,4 +1,4 @@
-.PHONY: bot-run web-run migrate-up migrate-down migrate-status drive-auth drive-backfill test lint format docker-build docker-up docker-down docker-logs docker-restart
+.PHONY: bot-run web-run migrate-up migrate-down migrate-status drive-auth drive-backfill download-nemotron test lint format docker-build docker-up docker-down docker-logs docker-restart
 
 bot-run:
 	uv run python bot_main.py
@@ -20,6 +20,9 @@ drive-auth:
 
 drive-backfill:
 	uv run python -m scripts.backfill_drive
+
+download-nemotron:
+	uv run python -m scripts.download_nemotron
 
 test:
 	uv run pytest tests/ -v -n auto
