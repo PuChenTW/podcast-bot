@@ -16,17 +16,17 @@ async def _setup_with_episode(pg_fresh_db, monkeypatch):
     podcast_id = await db.get_or_create_podcast("http://regen-test.com/feed.rss", "Regen Pod")
     await db.add_subscription(user_id, "Regen Pod", "http://regen-test.com/feed.rss")
     await db.mark_episode_seen(user_id, podcast_id, "ep-r", title="Regen Ep", published_at="2024-04-01", transcript="Some transcript")
-    return podcast_id, "ep-r"
+    return await db.get_episode_id(podcast_id, "ep-r")
 
 
 @pytest.mark.asyncio
 async def test_regenerate_returns_job_id(pg_fresh_db, monkeypatch):
-    podcast_id, guid = await _setup_with_episode(pg_fresh_db, monkeypatch)
+    episode_id = await _setup_with_episode(pg_fresh_db, monkeypatch)
     app = create_app()
 
     with patch("core.ai.summarizer.summarize_episode", new_callable=AsyncMock, return_value="New summary"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            resp = await c.post(f"/api/podcasts/{podcast_id}/episodes/{guid}/regenerate")
+            resp = await c.post(f"/api/episodes/{episode_id}/regenerate")
             assert resp.status_code == 202
             data = resp.json()
             assert "job_id" in data
@@ -46,9 +46,14 @@ async def test_regenerate_no_subscription_returns_403(pg_fresh_db, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "7777")
     await db.init_db()
+    await db.get_or_create_user(7777, chat_id=0)
+    other_user_id = await db.get_or_create_user(9999, chat_id=0)
+    podcast_id = await db.get_or_create_podcast("http://regen-other.com/feed.rss", "Other Pod")
+    await db.mark_episode_seen(other_user_id, podcast_id, "other-guid", title="Other Episode")
+    episode_id = await db.get_episode_id(podcast_id, "other-guid")
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post("/api/podcasts/fakepod/episodes/fakeguid/regenerate")
+        resp = await c.post(f"/api/episodes/{episode_id}/regenerate")
     assert resp.status_code == 403
 
 

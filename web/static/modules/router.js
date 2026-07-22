@@ -14,10 +14,8 @@ function route() {
         const page = parts[1] ? parseInt(parts[1], 10) : 0;
         renderEpisodeList(content, subId, page);
     } else if (hash.startsWith('#/episode/')) {
-        const parts = hash.slice('#/episode/'.length).split('/');
-        const podId = parts[0];
-        const guid = decodeURIComponent(parts.slice(1).join('/'));
-        renderEpisodeDetail(content, podId, guid);
+        const episodeId = hash.slice('#/episode/'.length);
+        renderEpisodeDetail(content, episodeId);
     } else {
         content.innerHTML = '<p>Page not found.</p>';
     }

@@ -217,18 +217,17 @@ async def get_episodes_by_podcast(podcast_id: str, limit: int = 50) -> list[dict
     return [dict(r) for r in rows]
 
 
-async def get_episode_detail(user_id: str, podcast_id: str, guid: str) -> dict | None:
+async def get_episode_detail(user_id: str, episode_id: str) -> dict | None:
     """Return episode fields + user's summary. summary is None if user has no user_episodes row."""
     async with _connect() as db:
         row = await db.fetchrow(
-            "SELECT e.id, e.title, e.published_at, e.transcript, e.condensed_transcript, "
+            "SELECT e.id, e.podcast_id, e.episode_guid, e.title, e.published_at, e.transcript, e.condensed_transcript, "
             "e.description, ue.summary "
             "FROM episodes e "
             "LEFT JOIN user_episodes ue ON ue.episode_id = e.id AND ue.user_id = $1 "
-            "WHERE e.podcast_id = $2 AND e.episode_guid = $3",
+            "WHERE e.id = $2",
             user_id,
-            podcast_id,
-            guid,
+            episode_id,
         )
         return dict(row) if row else None
 
@@ -251,17 +250,15 @@ async def get_episodes_by_podcast_with_summary(user_id: str, podcast_id: str, li
     return [dict(r) for r in rows]
 
 
-async def update_episode_summary(user_id: str, podcast_id: str, guid: str, summary: str) -> None:
-    """Upsert summary for a user's episode. Resolves guid → episode_id first."""
+async def update_episode_summary(user_id: str, episode_id: str, summary: str) -> None:
+    """Upsert summary for a user's episode."""
     async with _connect() as db:
         row = await db.fetchrow(
-            "SELECT id FROM episodes WHERE podcast_id = $1 AND episode_guid = $2",
-            podcast_id,
-            guid,
+            "SELECT 1 FROM episodes WHERE id = $1",
+            episode_id,
         )
         if row is None:
-            raise ValueError(f"Episode not found: podcast_id={podcast_id}, guid={guid}")
-        episode_id = row["id"]
+            raise ValueError(f"Episode not found: episode_id={episode_id}")
         await db.execute(
             "INSERT INTO user_episodes (id, user_id, episode_id, summary) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, episode_id) DO UPDATE SET summary = EXCLUDED.summary",
             _new_id(),

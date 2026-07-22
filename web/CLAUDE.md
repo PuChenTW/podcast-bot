@@ -39,9 +39,9 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | POST | `/api/subscriptions/{sub_id}/generate-chat-prompt` | AI-generate chat system prompt (returns `{prompt}`, does NOT save) |
 | POST | `/api/subscriptions/{sub_id}/refresh` | Fetch RSS, upsert new episodes, return `{new_count}` |
 | GET | `/api/subscriptions/{sub_id}/episodes` | Paginated episode list (`?page=N`, page size 20) |
-| GET | `/api/podcasts/{podcast_id}/episodes/{guid}/detail` | Full episode detail (transcript + summary) |
-| POST | `/api/podcasts/{podcast_id}/episodes/{guid}/regenerate` | Queue summary regeneration → returns `{job_id}` |
-| POST | `/api/podcasts/{podcast_id}/episodes/{guid}/chat` | SSE streaming chat; body: `{message, history?}`; returns `text/event-stream` |
+| GET | `/api/episodes/{episode_id}/detail` | Full episode detail (transcript + summary) |
+| POST | `/api/episodes/{episode_id}/regenerate` | Queue summary regeneration → returns `{job_id}` |
+| POST | `/api/episodes/{episode_id}/chat` | SSE streaming chat; body: `{message, history?}`; returns `text/event-stream` |
 | GET | `/api/jobs/{job_id}` | Poll job status (`pending`/`running`/`done`/`error`) |
 
 ## Dev

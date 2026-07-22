@@ -26,17 +26,19 @@ def _build_transcriber():
     return AudioPipeline(WhisperTranscriber(s.whisper_model))
 
 
-@router.post("/podcasts/{podcast_id}/episodes/{guid}/regenerate", status_code=202)
-async def regenerate_summary(podcast_id: str, guid: str, user_id: str = Depends(get_current_user)):
-    # Verify user has a subscription to this podcast
+@router.post("/episodes/{episode_id}/regenerate", status_code=202)
+async def regenerate_summary(episode_id: str, user_id: str = Depends(get_current_user)):
+    detail = await db.get_episode_detail(user_id, episode_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Episode not found")
+
     subs = await db.get_subscriptions(user_id)
+    podcast_id = detail["podcast_id"]
     sub = next((s for s in subs if s.podcast_id == podcast_id), None)
     if sub is None:
         raise HTTPException(status_code=403, detail="No subscription to this podcast")
 
-    detail = await db.get_episode_detail(user_id, podcast_id, guid)
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Episode not found")
+    guid = detail["episode_guid"]
 
     job = job_store.create_job()
 
@@ -61,7 +63,7 @@ async def regenerate_summary(podcast_id: str, guid: str, user_id: str = Depends(
             transcript or detail.get("description") or "",
             sub.custom_prompt,
         )
-        await db.update_episode_summary(user_id, podcast_id, guid, summary)
+        await db.update_episode_summary(user_id, episode_id, summary)
         return summary
 
     asyncio.create_task(job_store.run_job(job.id, _task()))

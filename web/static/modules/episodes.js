@@ -60,7 +60,6 @@ export async function renderEpisodeList(el, subId, page = 0) {
         ]);
         const sub = subs.find(s => s.id === subId);
         if (!sub) { showError(el, '找不到訂閱'); return; }
-        const podId = sub.podcast_id;
         if (!result || !result.episodes) { showError(el, '伺服器回應異常'); return; }
         const episodes = result.episodes;
 
@@ -157,14 +156,14 @@ export async function renderEpisodeList(el, subId, page = 0) {
             const row = document.createElement('div');
             row.className = 'episode-row';
             row.innerHTML = `
-                <span class="episode-title">${esc(ep.title || ep.episode_guid)}</span>
+                <span class="episode-title">${esc(ep.title || ep.id)}</span>
                 <span class="episode-meta">
                     <span class="episode-date">${ep.published_at ? ep.published_at.slice(0,10) : ''}</span>
                     <span class="badge ${ep.has_summary ? 'badge-yes' : 'badge-no'}">${ep.has_summary ? '✓ 摘要' : '無摘要'}</span>
                 </span>
             `;
             row.addEventListener('click', () => {
-                location.hash = '#/episode/' + podId + '/' + encodeURIComponent(ep.episode_guid);
+                location.hash = '#/episode/' + ep.id;
             });
             list.appendChild(row);
         }
@@ -199,15 +198,15 @@ export async function renderEpisodeList(el, subId, page = 0) {
 }
 
 // ---- Episode detail ----
-export async function renderEpisodeDetail(el, podId, guid) {
+export async function renderEpisodeDetail(el, episodeId) {
     el.innerHTML = '<p class="spinner">載入中…</p>';
     try {
-        const detail = await api('/podcasts/' + podId + '/episodes/' + encodeURIComponent(guid) + '/detail');
+        const detail = await api('/episodes/' + episodeId + '/detail');
 
-        setNavCrumb(esc(detail.title || guid));
+        setNavCrumb(esc(detail.title || episodeId));
         el.innerHTML = '';
 
-        el.insertAdjacentHTML('beforeend', `<h2 class="episode-detail-title">${esc(detail.title || guid)}</h2>`);
+        el.insertAdjacentHTML('beforeend', `<h2 class="episode-detail-title">${esc(detail.title || episodeId)}</h2>`);
 
         // Tabs
         const tabNames = ['摘要', '說明', '逐字稿', '精簡版', '💬 討論'];
@@ -226,7 +225,7 @@ export async function renderEpisodeDetail(el, podId, guid) {
         regenBtn.textContent = '↺';
         regenBtn.title = '重新生成摘要';
         regenBtn.className = 'regen-btn';
-        regenBtn.addEventListener('click', () => startRegenerate(podId, guid, summaryPanel, transcriptPanel, regenBtn));
+        regenBtn.addEventListener('click', () => startRegenerate(episodeId, summaryPanel, transcriptPanel, regenBtn));
 
         let chatInitialized = false;
         tabNames.forEach((name, i) => {
@@ -241,7 +240,7 @@ export async function renderEpisodeDetail(el, podId, guid) {
                 // Lazy-init chat panel on first open
                 if (i === 4 && !chatInitialized) {
                     chatInitialized = true;
-                    buildChatPanel(chatPanel, podId, guid, detail);
+                    buildChatPanel(chatPanel, episodeId, detail);
                 }
             });
             tabBar.appendChild(btn);
@@ -292,12 +291,12 @@ export async function renderEpisodeDetail(el, podId, guid) {
     }
 }
 
-async function startRegenerate(podId, guid, summaryPanel, transcriptPanel, regenBtn) {
+async function startRegenerate(episodeId, summaryPanel, transcriptPanel, regenBtn) {
     regenBtn.disabled = true;
     regenBtn.textContent = '↻';
     summaryPanel.innerHTML = '<p class="empty-state">重新生成中，請稍候…</p>';
     try {
-        const { job_id } = await api('/podcasts/' + podId + '/episodes/' + encodeURIComponent(guid) + '/regenerate', { method: 'POST' });
+        const { job_id } = await api('/episodes/' + episodeId + '/regenerate', { method: 'POST' });
         pollJob(job_id,
             async (result) => {
                 summaryPanel.innerHTML = marked.parse(result);
@@ -305,7 +304,7 @@ async function startRegenerate(podId, guid, summaryPanel, transcriptPanel, regen
                 regenBtn.textContent = '↺';
                 // Fetch updated detail to get the newly saved transcript
                 try {
-                    const updated = await api('/podcasts/' + podId + '/episodes/' + encodeURIComponent(guid) + '/detail');
+                    const updated = await api('/episodes/' + episodeId + '/detail');
                     transcriptPanel.innerHTML = updated.transcript
                         ? `<pre class="transcript-pre">${esc(updated.transcript)}</pre>`
                         : '<p class="empty-state">無逐字稿。</p>';

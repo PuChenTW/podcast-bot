@@ -25,14 +25,16 @@ async def list_episodes(sub_id: str, page: int = Query(default=0, ge=0), user_id
     return {"episodes": rows[:PAGE_SIZE], "page": page, "has_next": has_next, "has_prev": page > 0}
 
 
-@router.get("/podcasts/{podcast_id}/episodes/{guid}/detail")
-async def episode_detail(podcast_id: str, guid: str, user_id: str = Depends(get_current_user)):
-    subs = await db.get_subscriptions(user_id)
-    if not any(s.podcast_id == podcast_id for s in subs):
-        raise HTTPException(status_code=403, detail="No subscription to this podcast")
-    detail = await db.get_episode_detail(user_id, podcast_id, guid)
+@router.get("/episodes/{episode_id}/detail")
+async def episode_detail(episode_id: str, user_id: str = Depends(get_current_user)):
+    detail = await db.get_episode_detail(user_id, episode_id)
     if detail is None:
         raise HTTPException(status_code=404, detail="Episode not found")
+    subs = await db.get_subscriptions(user_id)
+    if not any(s.podcast_id == detail["podcast_id"] for s in subs):
+        raise HTTPException(status_code=403, detail="No subscription to this podcast")
+    detail.pop("podcast_id")
+    detail.pop("episode_guid")
     return detail
 
 
@@ -47,10 +49,15 @@ _CHAT_INIT_MESSAGE = (
 )
 
 
-@router.post("/podcasts/{podcast_id}/episodes/{guid}/chat")
-async def episode_chat(podcast_id: str, guid: str, body: ChatRequest, user_id: str = Depends(get_current_user)):
+@router.post("/episodes/{episode_id}/chat")
+async def episode_chat(episode_id: str, body: ChatRequest, user_id: str = Depends(get_current_user)):
+    detail = await db.get_episode_detail(user_id, episode_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Episode not found")
+
     subs = await db.get_subscriptions(user_id)
-    if not any(s.podcast_id == podcast_id for s in subs):
+    sub = next((s for s in subs if s.podcast_id == detail["podcast_id"]), None)
+    if sub is None:
         raise HTTPException(status_code=403, detail="No subscription to this podcast")
 
     if len(body.message) > 4000:
@@ -65,15 +72,11 @@ async def episode_chat(podcast_id: str, guid: str, body: ChatRequest, user_id: s
         except ValidationError:
             raise HTTPException(status_code=400, detail="Invalid history")
 
-    detail = await db.get_episode_detail(user_id, podcast_id, guid)
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Episode not found")
-
-    podcast_title = next((s.podcast_title for s in subs if s.podcast_id == podcast_id), "")
-    chat_prompt = next((s.chat_prompt for s in subs if s.podcast_id == podcast_id), None)
+    podcast_title = sub.podcast_title
+    chat_prompt = sub.chat_prompt
     transcript = detail.get("condensed_transcript") or detail.get("transcript") or ""
     summary = detail.get("summary")
-    episode_title = detail.get("title") or guid
+    episode_title = detail.get("title") or detail["episode_guid"]
 
     user_message = body.message
     if user_message == "__init__" and not body.history:

@@ -54,7 +54,7 @@ async def test_chat_with_episode_stream_yields_deltas():
 
 
 async def _setup_episode(pg_fresh_db, monkeypatch):
-    """Helper: create user, podcast, subscription, and one episode. Returns (sub_id, podcast_id, guid)."""
+    """Create user, podcast, subscription, and one episode."""
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "8888")
     await db.init_db()
@@ -62,12 +62,13 @@ async def _setup_episode(pg_fresh_db, monkeypatch):
     podcast_id = await db.get_or_create_podcast("http://ep-test.com/feed.rss", "Ep Test Pod")
     sub_id = await db.add_subscription(user_id, "Ep Test Pod", "http://ep-test.com/feed.rss")
     await db.mark_episode_seen(user_id, podcast_id, "ep-x", title="Episode X", published_at="2024-03-01", summary="Summary X", transcript="Transcript X")
-    return sub_id, podcast_id, "ep-x"
+    episode_id = await db.get_episode_id(podcast_id, "ep-x")
+    return sub_id, podcast_id, "ep-x", episode_id
 
 
 @pytest.mark.asyncio
 async def test_episode_list(pg_fresh_db, monkeypatch):
-    sub_id, podcast_id, guid = await _setup_episode(pg_fresh_db, monkeypatch)
+    sub_id, _, guid, episode_id = await _setup_episode(pg_fresh_db, monkeypatch)
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get(f"/api/subscriptions/{sub_id}/episodes")
@@ -77,6 +78,7 @@ async def test_episode_list(pg_fresh_db, monkeypatch):
     assert data["has_prev"] is False
     assert data["has_next"] is False
     assert len(data["episodes"]) == 1
+    assert data["episodes"][0]["id"] == episode_id
     assert data["episodes"][0]["episode_guid"] == guid
     assert data["episodes"][0]["has_summary"] == 1
 
@@ -94,10 +96,10 @@ async def test_episode_list_unknown_sub(pg_fresh_db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_episode_detail(pg_fresh_db, monkeypatch):
-    sub_id, podcast_id, guid = await _setup_episode(pg_fresh_db, monkeypatch)
+    _, _, _, episode_id = await _setup_episode(pg_fresh_db, monkeypatch)
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get(f"/api/podcasts/{podcast_id}/episodes/{guid}/detail")
+        resp = await c.get(f"/api/episodes/{episode_id}/detail")
     assert resp.status_code == 200
     data = resp.json()
     assert data["title"] == "Episode X"
@@ -108,34 +110,53 @@ async def test_episode_detail(pg_fresh_db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_episode_detail_not_found(pg_fresh_db, monkeypatch):
-    # User has a subscription to the podcast but the episode guid doesn't exist → 404
-    sub_id, podcast_id, guid = await _setup_episode(pg_fresh_db, monkeypatch)
+    await _setup_episode(pg_fresh_db, monkeypatch)
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get(f"/api/podcasts/{podcast_id}/episodes/no-such-guid/detail")
+        resp = await c.get("/api/episodes/no-such-episode/detail")
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_episode_detail_no_subscription_returns_403(pg_fresh_db, monkeypatch):
-    # User has no subscription to the podcast → 403
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "8888")
     await db.init_db()
+    await db.get_or_create_user(8888, chat_id=0)
+    other_user_id = await db.get_or_create_user(9999, chat_id=0)
+    podcast_id = await db.get_or_create_podcast("http://other.com/feed.rss", "Other Pod")
+    await db.mark_episode_seen(other_user_id, podcast_id, "other-guid", title="Other Episode")
+    episode_id = await db.get_episode_id(podcast_id, "other-guid")
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get("/api/podcasts/unsubscribed-pod/episodes/any-guid/detail")
+        resp = await c.get(f"/api/episodes/{episode_id}/detail")
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_episode_detail_with_guid_containing_slash(pg_fresh_db, monkeypatch):
+    sub_id, podcast_id, _, _ = await _setup_episode(pg_fresh_db, monkeypatch)
+    user_id = (await db.get_subscription_by_id(sub_id)).user_id
+    guid = "tag:soundcloud,2010:tracks/2365547081"
+    await db.mark_episode_seen(user_id, podcast_id, guid, title="SoundCloud Episode", transcript="Transcript")
+    episode_id = await db.get_episode_id(podcast_id, guid)
+
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get(f"/api/episodes/{episode_id}/detail")
+
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "SoundCloud Episode"
 
 
 @pytest.mark.asyncio
 async def test_chat_endpoint_invalid_message_too_long(pg_fresh_db, monkeypatch):
     """message > 4000 chars → 400."""
-    sub_id, podcast_id, guid = await _setup_episode(pg_fresh_db, monkeypatch)
+    _, _, _, episode_id = await _setup_episode(pg_fresh_db, monkeypatch)
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
-            f"/api/podcasts/{podcast_id}/episodes/{guid}/chat",
+            f"/api/episodes/{episode_id}/chat",
             json={"message": "x" * 4001, "history": ""},
         )
     assert resp.status_code == 400
@@ -144,11 +165,11 @@ async def test_chat_endpoint_invalid_message_too_long(pg_fresh_db, monkeypatch):
 @pytest.mark.asyncio
 async def test_chat_endpoint_invalid_history(pg_fresh_db, monkeypatch):
     """Malformed history JSON → 400."""
-    sub_id, podcast_id, guid = await _setup_episode(pg_fresh_db, monkeypatch)
+    _, _, _, episode_id = await _setup_episode(pg_fresh_db, monkeypatch)
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
-            f"/api/podcasts/{podcast_id}/episodes/{guid}/chat",
+            f"/api/episodes/{episode_id}/chat",
             json={"message": "hello", "history": "not-valid-json[[["},
         )
     assert resp.status_code == 400
@@ -156,14 +177,18 @@ async def test_chat_endpoint_invalid_history(pg_fresh_db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_chat_endpoint_no_subscription_returns_403(pg_fresh_db, monkeypatch):
-    """No subscription → 403."""
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "8888")
     await db.init_db()
+    await db.get_or_create_user(8888, chat_id=0)
+    other_user_id = await db.get_or_create_user(9999, chat_id=0)
+    podcast_id = await db.get_or_create_podcast("http://chat-other.com/feed.rss", "Other Pod")
+    await db.mark_episode_seen(other_user_id, podcast_id, "other-guid", title="Other Episode")
+    episode_id = await db.get_episode_id(podcast_id, "other-guid")
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
-            "/api/podcasts/no-such-pod/episodes/any-guid/chat",
+            f"/api/episodes/{episode_id}/chat",
             json={"message": "hello", "history": ""},
         )
     assert resp.status_code == 403

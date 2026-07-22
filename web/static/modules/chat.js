@@ -1,7 +1,7 @@
 import { api, esc } from './utils.js';
 
 // ---- Chat panel ----
-export function buildChatPanel(panel, podId, guid, detail) {
+export function buildChatPanel(panel, episodeId, detail) {
     let historyJson = '';
 
     panel.innerHTML = `
@@ -45,7 +45,7 @@ export function buildChatPanel(panel, podId, guid, detail) {
         historyArea.scrollTop = historyArea.scrollHeight;
 
         await streamChat(
-            podId, guid, message, historyJson,
+            episodeId, message, historyJson,
             agentBubble, cursor,
             (newHistoryJson) => { historyJson = newHistoryJson; },
             (errMsg) => {
@@ -88,8 +88,8 @@ export function buildChatPanel(panel, podId, guid, detail) {
     sendMessage('__init__');
 }
 
-async function streamChat(podId, guid, message, historyJson, bubbleEl, cursorEl, onHistory, onError) {
-    const url = '/api/podcasts/' + podId + '/episodes/' + encodeURIComponent(guid) + '/chat';
+async function streamChat(episodeId, message, historyJson, bubbleEl, cursorEl, onHistory, onError) {
+    const url = '/api/episodes/' + episodeId + '/chat';
     let resp;
     try {
         resp = await fetch(url, {

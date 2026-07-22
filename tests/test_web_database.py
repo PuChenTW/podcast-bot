@@ -5,7 +5,7 @@ from core import database as db
 
 @pytest.mark.asyncio
 async def test_get_episode_detail_returns_none_for_missing(tmp_db):
-    result = await db.get_episode_detail("user1", "pod1", "guid1")
+    result = await db.get_episode_detail("user1", "episode1")
     assert result is None
 
 
@@ -22,8 +22,11 @@ async def test_get_episode_detail_returns_fields(tmp_db):
         summary="My summary",
         transcript="Full transcript text",
     )
-    detail = await db.get_episode_detail(user_id, podcast_id, "ep-001")
+    episode_id = await db.get_episode_id(podcast_id, "ep-001")
+    detail = await db.get_episode_detail(user_id, episode_id)
     assert detail is not None
+    assert detail["podcast_id"] == podcast_id
+    assert detail["episode_guid"] == "ep-001"
     assert detail["title"] == "Episode One"
     assert detail["summary"] == "My summary"
     assert detail["transcript"] == "Full transcript text"
@@ -36,7 +39,8 @@ async def test_get_episode_detail_no_summary_when_no_user_episode(tmp_db):
     other_user_id = await db.get_or_create_user(1003, chat_id=0)
     podcast_id = await db.get_or_create_podcast("http://example.com/feed2.rss", "Test Pod 2")
     await db.mark_episode_seen(other_user_id, podcast_id, "ep-002", title="Ep2", published_at=None, summary="Other's summary")
-    detail = await db.get_episode_detail(user_id, podcast_id, "ep-002")
+    episode_id = await db.get_episode_id(podcast_id, "ep-002")
+    detail = await db.get_episode_detail(user_id, episode_id)
     assert detail is not None
     assert detail["summary"] is None  # LEFT JOIN: no user_episodes row for user_id
 
@@ -60,16 +64,14 @@ async def test_update_episode_summary(tmp_db):
     user_id = await db.get_or_create_user(1005, chat_id=0)
     podcast_id = await db.get_or_create_podcast("http://example.com/feed4.rss", "Test Pod 4")
     await db.mark_episode_seen(user_id, podcast_id, "ep-c", title="C", published_at=None, summary=None)
-    await db.update_episode_summary(user_id, podcast_id, "ep-c", "New summary")
-    detail = await db.get_episode_detail(user_id, podcast_id, "ep-c")
+    episode_id = await db.get_episode_id(podcast_id, "ep-c")
+    await db.update_episode_summary(user_id, episode_id, "New summary")
+    detail = await db.get_episode_detail(user_id, episode_id)
     assert detail["summary"] == "New summary"
 
 
 @pytest.mark.asyncio
 async def test_update_episode_summary_raises_on_missing_episode(tmp_db):
     user_id = await db.get_or_create_user(1006, chat_id=0)
-    podcast_id = await db.get_or_create_podcast("http://example.com/feed5.rss", "Test Pod 5")
     with pytest.raises(ValueError, match="Episode not found"):
-        await db.update_episode_summary(user_id, podcast_id, "nonexistent-guid", "Some summary")
-
-
+        await db.update_episode_summary(user_id, "nonexistent-episode", "Some summary")
