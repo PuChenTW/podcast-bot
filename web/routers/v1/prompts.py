@@ -15,6 +15,10 @@ router = APIRouter(prefix="/subscriptions/{subscription_id}", tags=["prompts"])
     responses={403: {"description": "Forbidden"}, 404: {"description": "Subscription not found"}},
 )
 async def get_subscription_prompts(subscription=Depends(require_subscription)):
+    """Return custom summary and chat prompts for a subscription.
+
+    A `null` value means the corresponding workflow uses its default prompt.
+    """
     return PromptSettings(summary_prompt=subscription.custom_prompt, chat_prompt=subscription.chat_prompt)
 
 
@@ -25,6 +29,11 @@ async def get_subscription_prompts(subscription=Depends(require_subscription)):
     responses={403: {"description": "Forbidden"}, 404: {"description": "Subscription not found"}},
 )
 async def update_subscription_prompts(body: PromptSettingsPatch, subscription=Depends(require_subscription)):
+    """Update custom prompts for a subscription.
+
+    Only fields present in the request are changed. Set a field to `null` to
+    restore that workflow's default prompt.
+    """
     update_summary = "summary_prompt" in body.model_fields_set
     update_chat = "chat_prompt" in body.model_fields_set
     updates = {}
@@ -46,6 +55,11 @@ async def update_subscription_prompts(body: PromptSettingsPatch, subscription=De
     responses={403: {"description": "Forbidden"}, 404: {"description": "Subscription not found"}},
 )
 async def create_subscription_prompt_draft(body: PromptDraftRequest, subscription=Depends(require_subscription)):
+    """Generate a custom prompt draft without saving it.
+
+    The requested prompt kind and natural-language description are combined
+    with the podcast title. Save the returned draft with the prompts endpoint.
+    """
     description = body.description.strip()
     context = f"{subscription.podcast_title}. {description}" if description else subscription.podcast_title
     if body.kind == "chat":

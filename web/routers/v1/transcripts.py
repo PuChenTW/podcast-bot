@@ -24,6 +24,12 @@ def _filename(podcast_title: str, episode_title: str) -> str:
     responses={403: {"description": "Subscription required"}, 404: {"description": "Transcript not found"}},
 )
 async def get_episode_transcript(episode: dict = Depends(require_episode)):
+    """Return an episode transcript and its provenance.
+
+    `source` identifies whether the transcript came from the podcast feed or
+    audio transcription. A subscribed episode without a transcript returns
+    `404`.
+    """
     if episode["transcript"] is None:
         raise HTTPException(status_code=404, detail="Transcript not found")
     return Transcript(
@@ -41,6 +47,11 @@ async def get_episode_transcript(episode: dict = Depends(require_episode)):
     responses={200: {"content": {"text/markdown": {}}}, 403: {"description": "Subscription required"}, 404: {"description": "Transcript not found"}},
 )
 async def download_episode_transcript(episode: dict = Depends(require_episode)):
+    """Download an episode transcript as a Markdown attachment.
+
+    The document includes the episode title, podcast title, publication date,
+    and cached transcript content.
+    """
     if episode["transcript"] is None:
         raise HTTPException(status_code=404, detail="Transcript not found")
     episode_title = episode["title"] or episode["episode_guid"]

@@ -31,6 +31,11 @@ async def list_podcast_episodes(
     cursor: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
 ):
+    """List episodes for a subscribed podcast, newest first.
+
+    Results include resource-availability flags and use opaque cursor
+    pagination. Pass `next_cursor` as `cursor` to retrieve the next page.
+    """
     decoded = decode_cursor(cursor)
     after_id = decoded.get("id") if decoded else None
     published_raw = decoded.get("published_at") if decoded else None
@@ -62,6 +67,11 @@ async def list_podcast_episodes(
     responses={403: {"description": "Subscription required"}, 404: {"description": "Episode not found"}},
 )
 async def get_episode(episode: dict = Depends(require_episode)):
+    """Return episode metadata and resource-availability flags.
+
+    The current user must subscribe to the episode's podcast. Summary and
+    transcript content are available from their dedicated endpoints.
+    """
     return EpisodeDetail(
         id=episode["id"],
         podcast_id=episode["podcast_id"],
@@ -80,6 +90,11 @@ async def get_episode(episode: dict = Depends(require_episode)):
     responses={403: {"description": "Subscription required"}, 404: {"description": "Summary not found"}},
 )
 async def get_episode_summary(episode: dict = Depends(require_episode)):
+    """Return the current user's generated summary for an episode.
+
+    A subscribed episode without a generated summary returns `404`. Use the
+    summary-job endpoint to generate or regenerate one.
+    """
     if episode["summary"] is None:
         raise HTTPException(status_code=404, detail="Summary not found")
     return Summary(episode_id=episode["id"], content=episode["summary"])
@@ -91,6 +106,13 @@ async def get_episode_summary(episode: dict = Depends(require_episode)):
     responses={200: {"content": {"text/event-stream": {}}}, 400: {"description": "Invalid history"}, 403: {"description": "Subscription required"}, 404: {"description": "Episode not found"}},
 )
 async def episode_chat(body: ChatRequest, episode: dict = Depends(require_episode)):
+    """Chat about an episode over a Server-Sent Events stream.
+
+    Send the user message and the serialized history returned by the previous
+    response. Text chunks use the default `message` event; the final `history`
+    event contains the serialized history to send with the next turn. An
+    `error` event reports failures that occur after streaming begins.
+    """
     history: list[ModelMessage] = []
     if body.history:
         try:

@@ -13,5 +13,6 @@ def test_openapi_operation_ids_are_explicit_and_unique():
     operation_ids = [operation["operationId"] for operation in operations]
     assert len(operation_ids) == len(set(operation_ids))
     assert all(operation.get("tags") for operation in operations)
+    assert all(operation.get("description") for operation in operations)
     assert "get_episode_transcript" in operation_ids
     assert "create_transcript_job" in operation_ids

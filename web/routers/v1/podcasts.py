@@ -26,6 +26,11 @@ async def list_podcasts(
     cursor: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
 ):
+    """List the current user's podcast subscriptions.
+
+    Optionally filters subscriptions by `q`. Results use opaque cursor
+    pagination; pass `next_cursor` as `cursor` to retrieve the next page.
+    """
     decoded = decode_cursor(cursor)
     after_id = decoded.get("subscription_id") if decoded else None
     if decoded is not None and not isinstance(after_id, str):
@@ -44,6 +49,11 @@ async def list_podcasts(
     responses={403: {"description": "Subscription required"}, 404: {"description": "Podcast not found"}},
 )
 async def get_podcast(podcast: dict = Depends(require_podcast)):
+    """Return one subscribed podcast.
+
+    The podcast must exist and the current user must have an active
+    subscription to it.
+    """
     return _podcast(podcast)
 
 
@@ -55,6 +65,11 @@ async def get_podcast(podcast: dict = Depends(require_podcast)):
     responses={422: {"description": "Invalid RSS URL"}},
 )
 async def create_subscription(body: SubscriptionCreate, user_id: CurrentUser):
+    """Subscribe the current user to a podcast RSS feed.
+
+    Resolves the supplied URL to an RSS feed, stores the podcast and its known
+    episodes, and establishes those episodes as the user's no-backlog baseline.
+    """
     try:
         rss_url = await rss.resolve_rss_url(body.rss_url)
     except ValueError as exc:
@@ -87,6 +102,10 @@ async def create_subscription(body: SubscriptionCreate, user_id: CurrentUser):
     responses={403: {"description": "Forbidden"}, 404: {"description": "Subscription not found"}},
 )
 async def delete_subscription(subscription=Depends(require_subscription)):
+    """Remove the current user's podcast subscription.
+
+    Shared podcast and episode records are retained for other subscribers.
+    """
     await db.remove_subscription_by_id(subscription.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -98,6 +117,12 @@ async def delete_subscription(subscription=Depends(require_subscription)):
     responses={403: {"description": "Subscription required"}, 404: {"description": "Podcast not found"}},
 )
 async def sync_podcast(user_id: CurrentUser, podcast: dict = Depends(require_podcast)):
+    """Refresh a subscribed podcast from its RSS feed.
+
+    Upserts feed metadata and episodes, then returns the number of episodes the
+    current user had not previously seen. This does not generate transcripts or
+    summaries.
+    """
     feed = await rss.fetch_feed(podcast["rss_url"])
     new_count = 0
     for entry in feed.entries:

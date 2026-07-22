@@ -14,6 +14,12 @@ router = APIRouter(prefix="/podcast-catalog", tags=["podcast-catalog"])
     responses={503: {"description": "Apple catalog unavailable"}},
 )
 async def search_podcast_catalog(user_id: CurrentUser, q: str = Query(min_length=1)):
+    """Search Apple Podcasts by show title, author, or topic.
+
+    Returns up to 10 matching podcasts with the RSS feed URL required to create
+    a subscription. Results are fetched live and are not limited to the user's
+    existing subscriptions.
+    """
     del user_id
     try:
         async with httpx.AsyncClient(timeout=10) as client:

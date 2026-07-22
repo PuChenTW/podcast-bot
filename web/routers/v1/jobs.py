@@ -24,6 +24,11 @@ async def _create_job(kind: str, user_id: str, episode: dict, response: Response
     responses={403: {"description": "Subscription required"}, 404: {"description": "Episode not found"}, 409: {"description": "Job conflict"}},
 )
 async def create_summary_job(response: Response, user_id: CurrentUser, episode: dict = Depends(require_episode)):
+    """Queue summary generation for an episode.
+
+    Returns the durable job with `202 Accepted`. Poll the URL in the `Location`
+    header until the job reaches `done` or `error`, then fetch `result_url`.
+    """
     return await _create_job("summary", user_id, episode, response)
 
 
@@ -35,6 +40,11 @@ async def create_summary_job(response: Response, user_id: CurrentUser, episode: 
     responses={403: {"description": "Subscription required"}, 404: {"description": "Episode not found"}, 409: {"description": "Job conflict"}},
 )
 async def create_transcript_job(response: Response, user_id: CurrentUser, episode: dict = Depends(require_episode)):
+    """Queue transcript generation for an episode.
+
+    Returns the durable job with `202 Accepted`. Poll the URL in the `Location`
+    header until the job reaches `done` or `error`, then fetch `result_url`.
+    """
     return await _create_job("transcript", user_id, episode, response)
 
 
@@ -45,6 +55,11 @@ async def create_transcript_job(response: Response, user_id: CurrentUser, episod
     responses={403: {"description": "Forbidden"}, 404: {"description": "Job not found"}},
 )
 async def get_job(job_id: str, user_id: CurrentUser):
+    """Return the current state of a durable background job.
+
+    Terminal jobs have status `done` or `error`. Successful jobs provide a
+    `result_url`; failed jobs provide an error code and message.
+    """
     job = await db.get_api_job_for_user(user_id, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
