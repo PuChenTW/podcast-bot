@@ -2,10 +2,14 @@ from web.app import create_app
 
 
 def test_openapi_exposes_only_versioned_api_routes():
-    paths = create_app().openapi()["paths"]
+    schema = create_app().openapi()
+    paths = schema["paths"]
     assert paths
     assert all(path.startswith("/api/v1/") for path in paths)
     assert "/api/subscriptions" not in paths
+    assert "Recommended workflow for agents" in schema["info"]["description"]
+    assert schema["info"]["summary"]
+    assert all(tag.get("description") for tag in schema["tags"])
 
 
 def test_openapi_operation_ids_are_explicit_and_unique():
