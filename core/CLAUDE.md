@@ -21,10 +21,12 @@
 users(id ULID, telegram_user_id, chat_id, language, created_at)
 podcasts(id ULID, rss_url UNIQUE, title, created_at)
 subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, chat_prompt, created_at)
-episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript, condensed_transcript, description)
+  UNIQUE(user_id, podcast_id)
+episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript, transcript_source, transcript_updated_at, condensed_transcript, description)
   UNIQUE(podcast_id, episode_guid)  -- shared across users
 user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified_at)
   UNIQUE(user_id, episode_id)  -- per-user delivery record
+api_jobs(id ULID, user_id→users, episode_id→episodes, kind, status, result_url, worker lease/error/timestamps)
 ```
 
 Schema source of truth is `pg_migrations/NNN_up.sql`. `init_db()` applies pending migrations via the `migrate` module's low-level helpers — there is no `_SCHEMA` constant.
@@ -39,6 +41,9 @@ Tests must patch `_get_pool` in `core.database` or set `DATABASE_URL` to a real 
 |----------|-----------|-------|
 | `is_episode_seen` | `(user_id, podcast_id, guid)` | |
 | `mark_episode_seen` | `(user_id, podcast_id, guid, ...)` | |
+| `upsert_episode` | `(podcast_id, guid, ...)` | Updates shared feed metadata |
+| `ensure_user_episode` | `(user_id, episode_id, summary?)` | Creates per-user delivery/summary state |
+| `get_episode_for_user` | `(user_id, episode_id)` | Episode plus nullable subscription ownership |
 | `get_episode_transcript` | `(podcast_id, guid)` | |
 | `get_episode_summary` | `(user_id, episode_id)` | `episode_id` is the ULID from `episodes` |
 | `get_episode_id` | `(podcast_id, guid)` | Resolves guid → ULID |
@@ -75,6 +80,6 @@ All AI ops read model names from `get_settings()` and use `_get_agent(model, sys
 
 ## Transcriber wiring
 
-`TranscriberPipeline` has no knowledge of which backends to use — wiring happens in `bot_main.py` via `_build_transcriber()`. `core.transcribers` exports: `AudioPipeline`, `ChunkTranscriber`, `Transcriber`, `WhisperTranscriber`, `GroqTranscriber`, `NemotronTranscriber`, `TranscriberPipeline`.
+`TranscriberPipeline` has no knowledge of which backends to use. `core.transcribers.build_transcriber(settings)` is the single wiring point shared by the bot and API job worker. `core.transcribers` also exports: `AudioPipeline`, `ChunkTranscriber`, `Transcriber`, `WhisperTranscriber`, `GroqTranscriber`, `NemotronTranscriber`, `TranscriberPipeline`.
 
 `NemotronTranscriber` runs NVIDIA Nemotron-3.5 streaming ASR locally via sherpa-onnx (CPU, incl. Apple Silicon — no CUDA; RTF ~0.06, multilingual, emits punctuation/casing). It decodes any input to 16 kHz mono via ffmpeg internally, so it only advertises `accepted_formats=("wav",)`. The `sherpa-onnx` PyPI wheel needs `sherpa-onnx-core` for its bundled libonnxruntime — both are pinned in `pyproject.toml` because uv does not auto-resolve `sherpa-onnx-core` from `sherpa-onnx` metadata.

@@ -12,7 +12,7 @@ from core.database import init_db
 # session-scoped: one DB per xdist worker, not one per test.
 # This avoids concurrent CREATE DATABASE calls that crash the PMR container.
 _postgres = create_postgres_fixture(scope="session")
-_TABLES = ["user_episodes", "episodes", "subscriptions", "podcasts", "users"]
+_TABLES = ["api_jobs", "user_episodes", "episodes", "subscriptions", "podcasts", "users"]
 
 
 @pytest.fixture(scope="session")

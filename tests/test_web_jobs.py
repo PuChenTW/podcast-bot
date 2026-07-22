@@ -1,49 +1,40 @@
 import pytest
 
-import web.jobs as jobs_module
-from web.jobs import JobStatus, create_job, get_job, run_job
+from core import database as db
 
 
-@pytest.fixture(autouse=True)
-def clear_jobs():
-    jobs_module._jobs.clear()
-    yield
-    jobs_module._jobs.clear()
-
-
-def test_create_and_get_job():
-    job = create_job()
-    assert job.status == JobStatus.PENDING
-    retrieved = get_job(job.id)
-    assert retrieved is job
-
-
-def test_get_job_missing_returns_none():
-    result = get_job("nonexistent-id")
-    assert result is None
+async def _job_fixture():
+    user_id = await db.get_or_create_user(2020, 0)
+    podcast_id = await db.get_or_create_podcast("https://jobs.example/feed", "Jobs")
+    episode_id = await db.upsert_episode(podcast_id, "episode-1", title="Episode")
+    await db.ensure_user_episode(user_id, episode_id)
+    return user_id, episode_id
 
 
 @pytest.mark.asyncio
-async def test_run_job_success():
-    job = create_job()
-
-    async def succeed():
-        return "result text"
-
-    await run_job(job.id, succeed())
-    assert job.status == JobStatus.DONE
-    assert job.result == "result text"
-    assert job.error is None
+async def test_create_and_claim_persisted_job(tmp_db):
+    user_id, episode_id = await _job_fixture()
+    created = await db.create_api_job(user_id, episode_id, "summary", f"/api/v1/episodes/{episode_id}/summary")
+    claimed = await db.claim_api_job("worker-1")
+    assert claimed["id"] == created["id"]
+    assert claimed["status"] == "running"
 
 
 @pytest.mark.asyncio
-async def test_run_job_failure():
-    job = create_job()
+async def test_second_worker_cannot_claim_active_lease(tmp_db):
+    user_id, episode_id = await _job_fixture()
+    await db.create_api_job(user_id, episode_id, "summary", f"/api/v1/episodes/{episode_id}/summary")
+    await db.claim_api_job("worker-1")
+    assert await db.claim_api_job("worker-2") is None
 
-    async def fail():
-        raise ValueError("something went wrong")
 
-    await run_job(job.id, fail())
-    assert job.status == JobStatus.ERROR
-    assert job.error == "something went wrong"
-    assert job.result is None
+@pytest.mark.asyncio
+async def test_expired_jobs_are_requeued_after_restart(tmp_db):
+    user_id, episode_id = await _job_fixture()
+    created = await db.create_api_job(user_id, episode_id, "summary", f"/api/v1/episodes/{episode_id}/summary")
+    await db.claim_api_job("worker-1")
+    async with db._connect() as connection:
+        await connection.execute("UPDATE api_jobs SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'")
+    await db.requeue_expired_api_jobs()
+    reclaimed = await db.claim_api_job("worker-2")
+    assert reclaimed["id"] == created["id"]

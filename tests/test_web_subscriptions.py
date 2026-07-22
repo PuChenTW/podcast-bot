@@ -7,89 +7,100 @@ from core import database as db
 from web.app import create_app
 
 
-@pytest.mark.asyncio
-async def test_get_subscriptions_empty(pg_fresh_db, monkeypatch):
+def _env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
-    await db.init_db()
-    app = create_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get("/api/subscriptions")
-    assert resp.status_code == 200
-    assert resp.json() == []
+
+
+def _feed(title: str):
+    feed = MagicMock()
+    feed.bozo = False
+    feed.feed.title = title
+    feed.entries = []
+    return feed
 
 
 @pytest.mark.asyncio
-async def test_post_subscription(pg_fresh_db, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
+async def test_get_podcasts_empty(pg_fresh_db, monkeypatch):
+    _env(monkeypatch)
     await db.init_db()
-    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as client:
+        response = await client.get("/api/v1/podcasts")
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "next_cursor": None}
 
-    mock_feed = MagicMock()
-    mock_feed.bozo = False
-    mock_feed.feed.title = "Test Podcast"
-    mock_feed.entries = []
 
-    with patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://example.com/feed.rss"), patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            resp = await c.post("/api/subscriptions", json={"rss_url": "http://example.com/feed.rss"})
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["podcast_title"] == "Test Podcast"
-    assert "id" in data
+@pytest.mark.asyncio
+async def test_post_subscription_and_list_podcast(pg_fresh_db, monkeypatch):
+    _env(monkeypatch)
+    await db.init_db()
+    with (
+        patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://example.com/feed.rss"),
+        patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=_feed("Test Podcast")),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as client:
+            response = await client.post("/api/v1/subscriptions", json={"rss_url": "http://example.com/feed.rss"})
+            listed = await client.get("/api/v1/podcasts?q=Test")
+    assert response.status_code == 201
+    assert response.json()["title"] == "Test Podcast"
+    assert listed.json()["items"][0]["id"] == response.json()["id"]
 
 
 @pytest.mark.asyncio
 async def test_delete_subscription_success(pg_fresh_db, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
+    _env(monkeypatch)
     await db.init_db()
-    app = create_app()
-
-    mock_feed = MagicMock()
-    mock_feed.bozo = False
-    mock_feed.feed.title = "Del Test"
-    mock_feed.entries = []
-
-    with patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://del.com/feed.rss"), patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            create_resp = await c.post("/api/subscriptions", json={"rss_url": "http://del.com/feed.rss"})
-            sub_id = create_resp.json()["id"]
-            del_resp = await c.delete(f"/api/subscriptions/{sub_id}")
-    assert del_resp.status_code == 204
+    with (
+        patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://del.com/feed.rss"),
+        patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=_feed("Delete Test")),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as client:
+            created = await client.post("/api/v1/subscriptions", json={"rss_url": "http://del.com/feed.rss"})
+            response = await client.delete(f"/api/v1/subscriptions/{created.json()['subscription_id']}")
+    assert response.status_code == 204
 
 
 @pytest.mark.asyncio
 async def test_delete_subscription_not_found(pg_fresh_db, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
+    _env(monkeypatch)
     await db.init_db()
-    app = create_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.delete("/api/subscriptions/nonexistent-id")
-    assert resp.status_code == 404
+    async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as client:
+        response = await client.delete("/api/v1/subscriptions/nonexistent-id")
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_put_prompt(pg_fresh_db, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("WEB_USER_TELEGRAM_ID", "9999")
+async def test_patch_prompts_supports_partial_update_and_clear(pg_fresh_db, monkeypatch):
+    _env(monkeypatch)
     await db.init_db()
-    app = create_app()
+    user_id = await db.get_or_create_user(9999, 0)
+    subscription_id = await db.add_subscription(user_id, "Prompt Test", "http://prompt.com/feed.rss")
+    await db.set_subscription_chat_prompt(subscription_id, "Keep me")
+    async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as client:
+        updated = await client.patch(
+            f"/api/v1/subscriptions/{subscription_id}/prompts",
+            json={"summary_prompt": "Focus on tech"},
+        )
+        cleared = await client.patch(
+            f"/api/v1/subscriptions/{subscription_id}/prompts",
+            json={"summary_prompt": None},
+        )
+    assert updated.json() == {"summary_prompt": "Focus on tech", "chat_prompt": "Keep me"}
+    assert cleared.json() == {"summary_prompt": None, "chat_prompt": "Keep me"}
 
-    mock_feed = MagicMock()
-    mock_feed.bozo = False
-    mock_feed.feed.title = "Prompt Test"
-    mock_feed.entries = []
 
-    with patch("core.feed.resolve_rss_url", new_callable=AsyncMock, return_value="http://prompt.com/feed.rss"), patch("core.feed.fetch_feed", new_callable=AsyncMock, return_value=mock_feed):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            create_resp = await c.post("/api/subscriptions", json={"rss_url": "http://prompt.com/feed.rss"})
-            sub_id = create_resp.json()["id"]
-            put_resp = await c.put(f"/api/subscriptions/{sub_id}/prompt", json={"prompt": "Focus on tech topics"})
-            assert put_resp.status_code == 200
-            # Verify GET reflects the saved prompt
-            list_resp = await c.get("/api/subscriptions")
-            saved = next(s for s in list_resp.json() if s["id"] == sub_id)
-            assert saved["custom_prompt"] == "Focus on tech topics"
+@pytest.mark.asyncio
+async def test_prompt_draft_does_not_save(pg_fresh_db, monkeypatch):
+    _env(monkeypatch)
+    await db.init_db()
+    user_id = await db.get_or_create_user(9999, 0)
+    subscription_id = await db.add_subscription(user_id, "Prompt Test", "http://prompt.com/feed.rss")
+    with patch("web.routers.v1.prompts.generate_prompt_from_description", new_callable=AsyncMock, return_value="Draft"):
+        async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as client:
+            draft = await client.post(
+                f"/api/v1/subscriptions/{subscription_id}/prompt-drafts",
+                json={"kind": "summary", "description": "Short"},
+            )
+            prompts = await client.get(f"/api/v1/subscriptions/{subscription_id}/prompts")
+    assert draft.json() == {"prompt": "Draft"}
+    assert prompts.json()["summary_prompt"] is None

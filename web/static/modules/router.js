@@ -9,10 +9,9 @@ function route() {
     if (hash === '#/' || hash === '') {
         renderHome(content);
     } else if (hash.startsWith('#/podcast/')) {
-        const parts = hash.slice('#/podcast/'.length).split('?page=');
-        const subId = parts[0];
-        const page = parts[1] ? parseInt(parts[1], 10) : 0;
-        renderEpisodeList(content, subId, page);
+        const [podcastId, query = ''] = hash.slice('#/podcast/'.length).split('?');
+        const params = new URLSearchParams(query);
+        renderEpisodeList(content, podcastId, params.get('cursor'), parseInt(params.get('page') || '0', 10));
     } else if (hash.startsWith('#/episode/')) {
         const episodeId = hash.slice('#/episode/'.length);
         renderEpisodeDetail(content, episodeId);

@@ -8,11 +8,9 @@ FastAPI web UI for managing podcast subscriptions and browsing episode summaries
 web/
   app.py          # FastAPI app factory; mounts routers + static dir
   auth.py         # get_current_user() dependency — Phase 1: env var; Phase 2: Telegram Login Widget
-  jobs.py         # In-memory async job store (ULID-keyed); used for long-running tasks
+  jobs.py         # PostgreSQL-backed worker for summary/transcript jobs
   routers/
-    subscriptions.py  # CRUD for subscriptions + prompt updates
-    episodes.py       # Episode list (paginated) + episode detail
-    jobs.py           # Trigger regenerate-summary job; poll job status
+    v1/            # Versioned catalog, podcast, episode, transcript, prompt, and job routes
   static/
     index.html    # Single-page frontend
     app.js        # ES module entry point — imports modules/router.js
@@ -30,19 +28,21 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/subscriptions` | List user's subscriptions |
-| POST | `/api/subscriptions` | Subscribe to RSS URL (marks existing episodes seen — no backlog flood); returns 422 if URL is not a valid RSS feed (`feed.bozo and not feed.entries`) |
-| DELETE | `/api/subscriptions/{sub_id}` | Unsubscribe |
-| PUT | `/api/subscriptions/{sub_id}/prompt` | Update custom summarization prompt |
-| PUT | `/api/subscriptions/{sub_id}/chat-prompt` | Update custom chat system prompt |
-| POST | `/api/subscriptions/{sub_id}/generate-prompt` | AI-generate summarization prompt (returns `{prompt}`, does NOT save) |
-| POST | `/api/subscriptions/{sub_id}/generate-chat-prompt` | AI-generate chat system prompt (returns `{prompt}`, does NOT save) |
-| POST | `/api/subscriptions/{sub_id}/refresh` | Fetch RSS, upsert new episodes, return `{new_count}` |
-| GET | `/api/subscriptions/{sub_id}/episodes` | Paginated episode list (`?page=N`, page size 20) |
-| GET | `/api/episodes/{episode_id}/detail` | Full episode detail (transcript + summary) |
-| POST | `/api/episodes/{episode_id}/regenerate` | Queue summary regeneration → returns `{job_id}` |
-| POST | `/api/episodes/{episode_id}/chat` | SSE streaming chat; body: `{message, history?}`; returns `text/event-stream` |
-| GET | `/api/jobs/{job_id}` | Poll job status (`pending`/`running`/`done`/`error`) |
+| GET | `/api/v1/podcast-catalog/search` | Search Apple Podcasts |
+| GET | `/api/v1/podcasts` | Search/list the user's subscribed podcasts |
+| POST | `/api/v1/subscriptions` | Subscribe and establish the current feed as the no-backlog baseline |
+| DELETE | `/api/v1/subscriptions/{id}` | Unsubscribe |
+| POST | `/api/v1/podcasts/{id}/sync` | Refresh feed metadata |
+| GET | `/api/v1/podcasts/{id}/episodes` | Cursor-paginated episode list |
+| GET | `/api/v1/episodes/{id}` | Lightweight episode metadata |
+| GET | `/api/v1/episodes/{id}/summary` | User-specific summary |
+| GET | `/api/v1/episodes/{id}/transcript` | Shared transcript and provenance |
+| GET | `/api/v1/episodes/{id}/transcript/download` | Download transcript Markdown |
+| POST | `/api/v1/episodes/{id}/{summary\|transcript}-jobs` | Queue resource regeneration |
+| GET | `/api/v1/jobs/{id}` | Poll durable job state |
+| GET/PATCH | `/api/v1/subscriptions/{id}/prompts` | Read/update summary and chat prompts |
+| POST | `/api/v1/subscriptions/{id}/prompt-drafts` | Generate but do not save a prompt |
+| POST | `/api/v1/episodes/{id}/chat` | Existing SSE chat protocol |
 
 ## Dev
 
@@ -64,13 +64,13 @@ Web-originated users are created with `chat_id=0` — a sentinel that causes the
 
 ## New Endpoint Pattern
 
-All `{sub_id}` endpoints: `get_subscription_by_id` → 404 if None → 403 if `sub.user_id != user_id` → do work.
+Use the v1 `require_podcast`, `require_episode`, and `require_subscription` dependencies for ownership checks. Shared podcast/episode lookup uses a nullable subscription join so a missing resource returns 404 while an existing inaccessible resource returns 403.
 
-`db.mark_episode_seen` is an UPSERT — safe to call unconditionally, no duplicates. Use `db.is_episode_seen` to check existence beforehand if you need to count new entries.
+Feed synchronization calls `upsert_episode` for shared metadata and `ensure_user_episode` for the no-backlog user baseline. `mark_episode_seen` remains the bot-facing convenience wrapper around both operations.
 
 ## Job Store
 
-`web/jobs.py` is an in-memory store. Jobs are lost on restart. Only used for `regenerate` which is fire-and-forget; clients poll `/api/jobs/{id}` until `done` or `error`.
+`web/jobs.py` claims durable `api_jobs` rows with `FOR UPDATE SKIP LOCKED`. Workers renew a lease while processing; expired leases are requeued after a crashed worker or service restart without stealing live work from another process. A transcript job replaces cached text only after successful feed/ASR completion and invalidates the condensed transcript; summary regeneration never creates a transcript as a side effect.
 
 ## Frontend DOM Updates
 

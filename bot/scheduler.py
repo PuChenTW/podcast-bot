@@ -36,6 +36,7 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
             summary=summary,
             transcript=episode.transcript,
             description=episode.description,
+            transcript_source=episode.transcript_source,
         )
         if get_settings().google_drive_enabled:
             await upload_episode(

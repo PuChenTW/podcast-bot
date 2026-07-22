@@ -4,6 +4,7 @@ import pytest
 
 from core.feed import (
     MAX_TRANSCRIPT_CHARS,
+    TranscriptResult,
     _extract_audio_url,
     _resolve_transcript_url,
     _strip_timing_markers,
@@ -214,7 +215,7 @@ class TestFetchNewEpisodes:
 
         with (
             patch("core.feed.feedparser.parse", return_value=mock_feed),
-            patch("core.feed.get_transcript", AsyncMock(return_value="content")),
+            patch("core.feed.get_transcript_result", AsyncMock(return_value=TranscriptResult("content", "feed"))),
         ):
             result = await fetch_new_episodes("user1", "pod1", "http://example.com/feed.rss", is_seen)
         assert len(result) == 1

@@ -5,6 +5,8 @@ import pytest
 from pytest_mock_resources import create_postgres_fixture
 
 from migrate import (
+    DEFAULT_MIGRATIONS_DIR,
+    _exec_sql_file,
     discover_migrations,
     ensure_migrations_table,
     get_applied_versions,
@@ -281,3 +283,22 @@ async def test_round_trip_up_down_up(db_url, migrations_dir):
     finally:
         await db.close()
     assert v3 == {1, 2}
+
+
+@pytest.mark.asyncio
+async def test_v3_migration_merges_duplicate_subscriptions(db_url):
+    db = await asyncpg.connect(db_url)
+    try:
+        await _exec_sql_file(db, (DEFAULT_MIGRATIONS_DIR / "001_up.sql").read_text())
+        await _exec_sql_file(db, (DEFAULT_MIGRATIONS_DIR / "002_up.sql").read_text())
+        await db.execute("INSERT INTO users (id, telegram_user_id, chat_id) VALUES ('user', 1, 0)")
+        await db.execute("INSERT INTO podcasts (id, rss_url, title) VALUES ('podcast', 'https://example.com/feed', 'Example')")
+        await db.execute("INSERT INTO subscriptions (id, user_id, podcast_id, custom_prompt, created_at) VALUES ('old', 'user', 'podcast', 'old summary', '2024-01-01')")
+        await db.execute("INSERT INTO subscriptions (id, user_id, podcast_id, custom_prompt, chat_prompt, created_at) VALUES ('new', 'user', 'podcast', 'new summary', 'new chat', '2024-02-01')")
+        await _exec_sql_file(db, (DEFAULT_MIGRATIONS_DIR / "003_up.sql").read_text())
+        rows = await db.fetch("SELECT id, custom_prompt, chat_prompt FROM subscriptions")
+        assert [dict(row) for row in rows] == [{"id": "old", "custom_prompt": "new summary", "chat_prompt": "new chat"}]
+        with pytest.raises(asyncpg.UniqueViolationError):
+            await db.execute("INSERT INTO subscriptions (id, user_id, podcast_id) VALUES ('duplicate', 'user', 'podcast')")
+    finally:
+        await db.close()

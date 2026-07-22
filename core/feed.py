@@ -53,6 +53,13 @@ class Episode:
     content: str  # transcript text or description (used for summarization)
     description: str  # raw RSS description/show notes
     transcript: str | None  # real transcript only; None if no transcript was found
+    transcript_source: str | None
+
+
+@dataclass(frozen=True)
+class TranscriptResult:
+    text: str
+    source: str
 
 
 def _strip_timing_markers(text: str) -> str:
@@ -141,13 +148,13 @@ async def _download_audio(url: str) -> str | None:
         return None
 
 
-async def get_transcript(
+async def get_transcript_result(
     entry: dict,
     transcriber: Transcriber,
     podcast_title: str = "",
     corrector: Corrector | None = None,
-) -> str | None:
-    """Return corrected transcript text from URL or audio; None if neither succeeded."""
+) -> TranscriptResult | None:
+    """Return corrected transcript text and its source, or None if unavailable."""
 
     async def _correct(text: str) -> str:
         if corrector is None:
@@ -160,7 +167,7 @@ async def get_transcript(
     if url:
         text = await _fetch_transcript_url(url)
         if text:
-            return await _correct(text[:MAX_TRANSCRIPT_CHARS])
+            return TranscriptResult(await _correct(text[:MAX_TRANSCRIPT_CHARS]), "feed")
 
     audio_url = _extract_audio_url(entry)
     if audio_url:
@@ -169,7 +176,7 @@ async def get_transcript(
             try:
                 text = await transcriber.transcribe(path)
                 if text:
-                    return await _correct(text[:MAX_TRANSCRIPT_CHARS])
+                    return TranscriptResult(await _correct(text[:MAX_TRANSCRIPT_CHARS]), "asr")
             finally:
                 try:
                     os.unlink(path)
@@ -177,6 +184,16 @@ async def get_transcript(
                     pass
 
     return None
+
+
+async def get_transcript(
+    entry: dict,
+    transcriber: Transcriber,
+    podcast_title: str = "",
+    corrector: Corrector | None = None,
+) -> str | None:
+    result = await get_transcript_result(entry, transcriber, podcast_title, corrector)
+    return result.text if result else None
 
 
 async def resolve_rss_url(url: str) -> str:
@@ -234,7 +251,8 @@ async def _build_episode(
     corrector: Corrector | None = None,
 ) -> Episode:
     guid = entry.get("id") or entry.get("link") or entry.get("title", "")
-    transcript = await get_transcript(entry, transcriber, podcast_title, corrector)
+    transcript_result = await get_transcript_result(entry, transcriber, podcast_title, corrector)
+    transcript = transcript_result.text if transcript_result else None
     description = entry.get("summary") or entry.get("description") or ""
     content = transcript or description
     return Episode(
@@ -244,6 +262,7 @@ async def _build_episode(
         content=content,
         description=description,
         transcript=transcript,
+        transcript_source=transcript_result.source if transcript_result else None,
     )
 
 

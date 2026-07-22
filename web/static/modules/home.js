@@ -4,20 +4,20 @@ function isUrl(s) {
     return s.startsWith('http://') || s.startsWith('https://');
 }
 
-function buildCard(sub, grid, el) {
+function buildCard(podcast, grid, el) {
     const card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = `<h3>${esc(sub.podcast_title)}</h3><p class="subtitle">${esc(sub.rss_url)}</p>`;
-    card.addEventListener('click', () => { location.hash = '#/podcast/' + sub.id; });
+    card.innerHTML = `<h3>${esc(podcast.title)}</h3><p class="subtitle">${esc(podcast.rss_url)}</p>`;
+    card.addEventListener('click', () => { location.hash = '#/podcast/' + podcast.id; });
 
     const delBtn = document.createElement('button');
     delBtn.className = 'danger';
     delBtn.textContent = '退訂';
     delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (!confirm('確定退訂 ' + sub.podcast_title + '？')) return;
+        if (!confirm('確定退訂 ' + podcast.title + '？')) return;
         try {
-            await api('/subscriptions/' + sub.id, { method: 'DELETE' });
+            await api('/subscriptions/' + podcast.subscription_id, { method: 'DELETE' });
             card.remove();
             if (grid.children.length === 0) {
                 const label = grid.previousElementSibling;
@@ -56,8 +56,8 @@ async function subscribeUrl(feedUrl, hint = {}, panel, input, resultsList, hideR
     hideResults();
 
     try {
-        const sub = await api('/subscriptions', { method: 'POST', body: JSON.stringify({ rss_url: feedUrl }) });
-        loadingCard.replaceWith(buildCard(sub, grid, el));
+        const podcast = await api('/subscriptions', { method: 'POST', body: JSON.stringify({ rss_url: feedUrl }) });
+        loadingCard.replaceWith(buildCard(podcast, grid, el));
     } catch (err) {
         loadingCard.remove();
         if (grid.children.length === 0) {
@@ -80,7 +80,7 @@ async function searchPodcasts(q, resultsList) {
     resultsList.style.display = 'block';
     resultsList.innerHTML = '<p class="spinner" style="padding:10px 14px;margin:0">搜尋中…</p>';
     try {
-        const results = await api('/podcasts/search?q=' + encodeURIComponent(q));
+        const results = await api('/podcast-catalog/search?q=' + encodeURIComponent(q));
         if (!results.length) {
             resultsList.innerHTML = '<p class="spinner" style="padding:10px 14px;margin:0">無結果</p>';
             return;
@@ -113,7 +113,8 @@ export async function renderHome(el) {
     el.innerHTML = '<p class="spinner">Loading…</p>';
     setNavCrumb('');
     try {
-        const subs = await api('/subscriptions');
+        const result = await api('/podcasts');
+        const podcasts = result.items;
         el.innerHTML = '';
 
         // Subscribe form
@@ -166,7 +167,7 @@ export async function renderHome(el) {
         panel.appendChild(resultsList);
         el.appendChild(panel);
 
-        if (subs.length === 0) {
+        if (podcasts.length === 0) {
             el.insertAdjacentHTML('beforeend', '<div class="empty-state">尚無訂閱，請在上方新增。</div>');
             return;
         }
@@ -174,8 +175,8 @@ export async function renderHome(el) {
         el.insertAdjacentHTML('beforeend', '<div class="section-label">我的訂閱</div>');
         const grid = document.createElement('div');
         grid.className = 'card-grid';
-        for (const sub of subs) {
-            grid.appendChild(buildCard(sub, grid, el));
+        for (const podcast of podcasts) {
+            grid.appendChild(buildCard(podcast, grid, el));
         }
         el.appendChild(grid);
     } catch (err) {

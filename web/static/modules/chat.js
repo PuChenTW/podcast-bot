@@ -89,7 +89,7 @@ export function buildChatPanel(panel, episodeId, detail) {
 }
 
 async function streamChat(episodeId, message, historyJson, bubbleEl, cursorEl, onHistory, onError) {
-    const url = '/api/episodes/' + episodeId + '/chat';
+    const url = '/api/v1/episodes/' + episodeId + '/chat';
     let resp;
     try {
         resp = await fetch(url, {

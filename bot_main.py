@@ -24,7 +24,7 @@ from bot.handlers import (
 from bot.scheduler import start_scheduler, stop_scheduler
 from core.config import get_settings
 from core.database import close_db, init_db
-from core.transcribers import AudioPipeline, GroqTranscriber, NemotronTranscriber, Transcriber, TranscriberPipeline, WhisperTranscriber
+from core.transcribers import build_transcriber
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -35,19 +35,9 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-def _build_transcriber(s) -> Transcriber:
-    if s.transcriber_backend == "groq":
-        return TranscriberPipeline(
-            [AudioPipeline(GroqTranscriber(s.groq_api_key)), AudioPipeline(NemotronTranscriber(s.nemotron_model_dir, s.nemotron_language)), AudioPipeline(WhisperTranscriber(s.whisper_model))]
-        )
-    if s.transcriber_backend == "nemotron":
-        return TranscriberPipeline([AudioPipeline(NemotronTranscriber(s.nemotron_model_dir, s.nemotron_language)), AudioPipeline(WhisperTranscriber(s.whisper_model))])
-    return AudioPipeline(WhisperTranscriber(s.whisper_model))
-
-
 async def post_init(app: Application) -> None:
     await init_db()
-    app.bot_data["transcriber"] = _build_transcriber(get_settings())
+    app.bot_data["transcriber"] = build_transcriber(get_settings())
     await start_scheduler(app)
     await app.bot.set_my_commands(
         [

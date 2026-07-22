@@ -1,12 +1,14 @@
 // ---- API wrapper ----
 export async function api(path, opts = {}) {
-    const resp = await fetch('/api' + path, {
+    const resp = await fetch('/api/v1' + path, {
         headers: { 'Content-Type': 'application/json' },
         ...opts,
     });
     if (!resp.ok) {
         const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-        throw new Error(err.detail || resp.statusText);
+        const error = new Error(err.detail || err.error?.message || resp.statusText);
+        error.status = resp.status;
+        throw error;
     }
     if (resp.status === 204) return null;
     return resp.json();
@@ -18,9 +20,9 @@ export function pollJob(jobId, onDone, onError) {
         try {
             const job = await api('/jobs/' + jobId);
             if (job.status === 'done') {
-                onDone(job.result);
+                onDone(job.result_url);
             } else if (job.status === 'error') {
-                onError(job.error || 'Unknown error');
+                onError(job.error_message || 'Unknown error');
             } else {
                 pollJob(jobId, onDone, onError); // keep polling
             }

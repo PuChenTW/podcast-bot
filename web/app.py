@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from core import database as db
-from web.routers import episodes, jobs, subscriptions
+from web import jobs
+from web.routers.v1 import router as api_v1_router
 
 
 @asynccontextmanager
@@ -14,14 +15,16 @@ async def lifespan(app: FastAPI):
     for var in ("GEMINI_API_KEY", "WEB_USER_TELEGRAM_ID"):
         if not os.environ.get(var):
             raise RuntimeError(f"Missing required env var: {var}")
-    yield
-    await db.close_db()
+    await jobs.start_job_worker()
+    try:
+        yield
+    finally:
+        await jobs.stop_job_worker()
+        await db.close_db()
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(lifespan=lifespan)
-    app.include_router(subscriptions.router, prefix="/api")
-    app.include_router(episodes.router, prefix="/api")
-    app.include_router(jobs.router, prefix="/api")
+    app = FastAPI(title="Podcast Bot API", version="1.0.0", lifespan=lifespan)
+    app.include_router(api_v1_router)
     app.mount("/", StaticFiles(directory="web/static", html=True))
     return app
