@@ -1,17 +1,17 @@
 import asyncio
 import calendar
 import logging
-import os
 import re
-import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Awaitable, Callable
 
 import feedparser
 import httpx
 
+from core.audio_workspace import audio_workspace
 from core.transcribers import Transcriber
 
 logger = logging.getLogger(__name__)
@@ -122,29 +122,23 @@ def _extract_audio_url(entry: dict) -> str | None:
     return None
 
 
-async def _download_audio(url: str) -> str | None:
+async def _download_audio(url: str, workspace: Path) -> str | None:
+    path = workspace / "source.audio"
     try:
-        tmp = tempfile.NamedTemporaryFile(suffix=".audio", delete=False)
         total = 0
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
-            async with client.stream("GET", url) as resp:
-                resp.raise_for_status()
-                async for chunk in resp.aiter_bytes(chunk_size=65536):
-                    total += len(chunk)
-                    if total > MAX_AUDIO_BYTES:
-                        logger.warning("Audio file too large, aborting: %s", url)
-                        tmp.close()
-                        os.unlink(tmp.name)
-                        return None
-                    tmp.write(chunk)
-        tmp.close()
-        return tmp.name
+        with path.open("wb") as audio_file:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+                async with client.stream("GET", url) as resp:
+                    resp.raise_for_status()
+                    async for chunk in resp.aiter_bytes(chunk_size=65536):
+                        total += len(chunk)
+                        if total > MAX_AUDIO_BYTES:
+                            logger.warning("Audio file too large, aborting: %s", url)
+                            return None
+                        audio_file.write(chunk)
+        return str(path)
     except Exception as exc:
         logger.warning("Failed to download audio %s: %s\n", url, exc)
-        try:
-            os.unlink(tmp.name)
-        except Exception:
-            pass
         return None
 
 
@@ -171,17 +165,12 @@ async def get_transcript_result(
 
     audio_url = _extract_audio_url(entry)
     if audio_url:
-        path = await _download_audio(audio_url)
-        if path:
-            try:
+        with audio_workspace() as workspace:
+            path = await _download_audio(audio_url, workspace)
+            if path:
                 text = await transcriber.transcribe(path)
                 if text:
                     return TranscriptResult(await _correct(text[:MAX_TRANSCRIPT_CHARS]), "asr")
-            finally:
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
 
     return None
 

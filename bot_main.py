@@ -22,6 +22,7 @@ from bot.handlers import (
     unsubscribe_conv,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
+from core.audio_workspace import cleanup_stale_audio_workspaces
 from core.config import get_settings
 from core.database import close_db, init_db
 from core.transcribers import build_transcriber
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 async def post_init(app: Application) -> None:
+    cleanup_stale_audio_workspaces()
     await init_db()
     app.bot_data["transcriber"] = build_transcriber(get_settings())
     await start_scheduler(app)

@@ -1,3 +1,5 @@
+import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -162,11 +164,75 @@ class TestGetTranscript:
         with (
             patch("core.feed._fetch_transcript_url", AsyncMock(return_value=None)),
             patch("core.feed._download_audio", AsyncMock(return_value="/tmp/audio.mp3")),
-            patch("core.feed.os.unlink"),
         ):
             result = await get_transcript(entry, transcriber, corrector=corrector)
         assert result == "corrected audio"
         corrector.assert_called_once_with("transcribed", "", "Ep 2", "desc")
+
+    async def test_audio_workspace_cleaned_after_success(self, tmp_path):
+        entry = {"enclosures": [{"href": "http://example.com/ep.mp3", "type": "audio/mpeg"}]}
+        transcriber = AsyncMock()
+
+        async def download(_url, workspace):
+            path = workspace / "source.audio"
+            path.write_bytes(b"audio")
+            return str(path)
+
+        async def transcribe(path):
+            assert tmp_path in Path(path).parents
+            return "transcribed"
+
+        transcriber.transcribe.side_effect = transcribe
+        with (
+            patch("core.audio_workspace.tempfile.gettempdir", return_value=str(tmp_path)),
+            patch("core.feed._download_audio", side_effect=download),
+        ):
+            result = await get_transcript(entry, transcriber)
+
+        assert result == "transcribed"
+        assert not list(tmp_path.iterdir())
+
+    async def test_audio_workspace_cleaned_when_download_cancelled(self, tmp_path):
+        entry = {"enclosures": [{"href": "http://example.com/ep.mp3", "type": "audio/mpeg"}]}
+        started = asyncio.Event()
+        transcriber = AsyncMock()
+
+        async def download(_url, workspace):
+            (workspace / "source.audio").write_bytes(b"partial")
+            started.set()
+            await asyncio.Event().wait()
+
+        with (
+            patch("core.audio_workspace.tempfile.gettempdir", return_value=str(tmp_path)),
+            patch("core.feed._download_audio", side_effect=download),
+        ):
+            task = asyncio.create_task(get_transcript(entry, transcriber))
+            await started.wait()
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        assert not list(tmp_path.iterdir())
+
+    async def test_audio_workspace_cleaned_when_corrector_fails(self, tmp_path):
+        entry = {"enclosures": [{"href": "http://example.com/ep.mp3", "type": "audio/mpeg"}]}
+        transcriber = AsyncMock()
+        transcriber.transcribe.return_value = "transcribed"
+        corrector = AsyncMock(side_effect=RuntimeError("AI unavailable"))
+
+        async def download(_url, workspace):
+            path = workspace / "source.audio"
+            path.write_bytes(b"audio")
+            return str(path)
+
+        with (
+            patch("core.audio_workspace.tempfile.gettempdir", return_value=str(tmp_path)),
+            patch("core.feed._download_audio", side_effect=download),
+        ):
+            with pytest.raises(RuntimeError, match="AI unavailable"):
+                await get_transcript(entry, transcriber, corrector=corrector)
+
+        assert not list(tmp_path.iterdir())
 
     async def test_path3_no_transcript_returns_none(self):
         entry = {"title": "Ep 3", "summary": "fallback description"}

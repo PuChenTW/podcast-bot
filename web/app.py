@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from core import database as db
+from core.audio_workspace import cleanup_stale_audio_workspaces
 from web import jobs
 from web.routers.v1 import router as api_v1_router
 
@@ -68,6 +69,7 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    cleanup_stale_audio_workspaces()
     await db.init_db()
     for var in ("GEMINI_API_KEY", "WEB_USER_TELEGRAM_ID"):
         if not os.environ.get(var):

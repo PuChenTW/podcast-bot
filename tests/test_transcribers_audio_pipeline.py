@@ -1,11 +1,12 @@
 """Unit tests for AudioPipeline."""
 
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.transcribers.audio_pipeline import AudioPipeline
+from core.transcribers.audio_pipeline import AudioPipeline, _split_audio
 
 
 class MockChunkTranscriber:
@@ -225,3 +226,26 @@ async def test_cleanup_runs_on_exception(tmp_path):
     assert result is None
     for p in created_tmp:
         assert not os.path.exists(p), f"Temp file not cleaned up: {p}"
+
+
+@pytest.mark.parametrize("raise_error", [False, True])
+def test_split_failure_cleans_current_partial_chunk(tmp_path, raise_error):
+    audio = tmp_path / "episode.mp3"
+    audio.write_bytes(b"x" * 200)
+    probe_count = 0
+
+    def side_effect(cmd, **kwargs):
+        nonlocal probe_count
+        if "ffprobe" in cmd[0]:
+            probe_count += 1
+            return _ffprobe_format_result("10" if probe_count == 1 else "mp3")
+        Path(cmd[-1]).write_bytes(b"partial")
+        if raise_error:
+            raise RuntimeError("ffmpeg crashed")
+        return MagicMock(returncode=1, stderr=b"split failed")
+
+    with patch("core.transcribers.audio_pipeline.subprocess.run", side_effect=side_effect):
+        result = _split_audio(str(audio), 50)
+
+    assert result == [str(audio)]
+    assert list(tmp_path.iterdir()) == [audio]

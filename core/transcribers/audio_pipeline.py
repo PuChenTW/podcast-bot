@@ -14,6 +14,7 @@ FORMAT_TO_EXT = {"mp3": ".mp3", "ogg": ".ogg", "flac": ".flac", "wav": ".wav", "
 
 def _split_audio(path: str, max_bytes: int) -> list[str]:
     """Split audio file into chunks each under max_bytes. Returns list of temp file paths."""
+    chunk_paths: list[str] = []
     try:
         file_size = os.path.getsize(path)
         result = subprocess.run(
@@ -45,11 +46,11 @@ def _split_audio(path: str, max_bytes: int) -> list[str]:
         )
         fmt = fmt_result.stdout.strip().split(",")[0] if fmt_result.returncode == 0 else ""
         suffix = FORMAT_TO_EXT.get(fmt, ".mp3")
-        chunk_paths: list[str] = []
         for i in range(n_chunks):
             offset = i * chunk_duration
-            tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+            tmp = tempfile.NamedTemporaryFile(suffix=suffix, dir=os.path.dirname(path), delete=False)
             tmp.close()
+            chunk_paths.append(tmp.name)
             r = subprocess.run(
                 [
                     "ffmpeg",
@@ -75,10 +76,14 @@ def _split_audio(path: str, max_bytes: int) -> list[str]:
                     except OSError:
                         pass
                 return [path]
-            chunk_paths.append(tmp.name)
         return chunk_paths
     except Exception as exc:
         logger.warning("_split_audio failed: %s", exc, exc_info=True)
+        for p in chunk_paths:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
         return [path]
 
 
@@ -110,7 +115,7 @@ class AudioPipeline:
             # Convert if format not accepted
             if fmt and fmt not in self._transcriber.accepted_formats:
                 target_ext = FORMAT_TO_EXT.get(self._transcriber.accepted_formats[0], ".mp3")
-                tmp = tempfile.NamedTemporaryFile(suffix=target_ext, delete=False)
+                tmp = tempfile.NamedTemporaryFile(suffix=target_ext, dir=os.path.dirname(audio_path), delete=False)
                 tmp.close()
                 temp_files.append(tmp.name)
                 conv_result = await asyncio.to_thread(
