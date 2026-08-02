@@ -6,13 +6,13 @@ FastAPI web UI for managing podcast subscriptions and browsing episode summaries
 
 ```
 web/
-  app.py          # FastAPI app factory; mounts routers + static dir
+  app.py          # FastAPI app factory; mounts routers + static dir; serves index.html via a route (not StaticFiles) to inject WEB_BASE_PATH into <base href>
   auth.py         # get_current_user() dependency — Phase 1: env var; Phase 2: Telegram Login Widget
   jobs.py         # PostgreSQL-backed worker for summary/transcript jobs
   routers/
     v1/            # Versioned catalog, podcast, episode, transcript, prompt, and job routes
   static/
-    index.html    # Single-page frontend
+    index.html    # Single-page frontend; <base href="./"> placeholder rewritten by app.py at request time
     app.js        # ES module entry point — imports modules/router.js
     modules/
       utils.js    # api(), esc(), showError(), setNavCrumb(), pollJob()
@@ -47,7 +47,7 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 ## Dev
 
 ```bash
-make web-run     # uvicorn web_main:app --reload --port 8000
+make web-run     # uvicorn web_main:app --reload --port 8888
 ```
 
 Required env vars (in addition to `GEMINI_API_KEY`):
@@ -55,6 +55,7 @@ Required env vars (in addition to `GEMINI_API_KEY`):
 | Variable | Notes |
 |----------|-------|
 | `WEB_USER_TELEGRAM_ID` | Telegram user ID; web UI auth resolves this to a DB user |
+| `WEB_BASE_PATH` | Optional. Set when reverse-proxied under a sub-path (e.g. `tailscale serve --set-path=/podcast-bot 8888` needs `WEB_BASE_PATH=/podcast-bot`). Empty by default. |
 
 ## Auth
 
@@ -75,6 +76,8 @@ Feed synchronization calls `upsert_episode` for shared metadata and `ensure_user
 ## Frontend DOM Updates
 
 Frontend uses ES modules (`<script type="module">`). FastAPI's StaticFiles serves correct MIME types — no bundler needed. `marked` is loaded from CDN as a global and accessed directly (not imported).
+
+All API calls and asset references resolve against `document.baseURI` (or plain relative paths), never a hardcoded `/api/v1` or `/`, so the frontend keeps working when reverse-proxied under `WEB_BASE_PATH`.
 
 `home.js` does in-place DOM mutations for subscribe/unsubscribe — no `location.hash` reload. Subscribe success appends a new card directly to the grid (or creates the grid if first subscription); unsubscribe removes the card and shows empty-state if the grid is now empty. This avoids the hashchange no-op when already on `#/`.
 

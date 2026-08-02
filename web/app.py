@@ -1,7 +1,9 @@
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from core import database as db
@@ -92,5 +94,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(api_v1_router)
-    app.mount("/podcast-bot", StaticFiles(directory="web/static", html=True))
+
+    # Base path this app is reverse-proxied under (e.g. "/podcast-bot" via `tailscale serve
+    # --set-path`). Empty by default for local/root-mounted deployment. Injected into <base
+    # href> so relative asset and API requests resolve under the proxy prefix instead of root.
+    base_path = os.environ.get("WEB_BASE_PATH", "").rstrip("/")
+    index_html = (Path("web/static") / "index.html").read_text()
+    index_html = index_html.replace('<base href="./">', f'<base href="{base_path}/">')
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def index():
+        return index_html
+
+    app.mount("/", StaticFiles(directory="web/static"))
     return app

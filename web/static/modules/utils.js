@@ -1,6 +1,6 @@
 // ---- API wrapper ----
 export async function api(path, opts = {}) {
-    const resp = await fetch('/api/v1' + path, {
+    const resp = await fetch(new URL('api/v1' + path, document.baseURI), {
         headers: { 'Content-Type': 'application/json' },
         ...opts,
     });
