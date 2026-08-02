@@ -92,5 +92,5 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(api_v1_router)
-    app.mount("/", StaticFiles(directory="web/static", html=True))
+    app.mount("/podcast-bot", StaticFiles(directory="web/static", html=True))
     return app
