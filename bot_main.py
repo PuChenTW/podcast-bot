@@ -9,7 +9,6 @@ from telegram.ext import (
 from bot.handlers import (
     chat_conv,
     cmd_list,
-    cmd_reload,
     cmd_start,
     digest_conv,
     language_callback_handler,
@@ -52,7 +51,6 @@ async def post_init(app: Application) -> None:
             ("chat", "Discuss an episode with AI"),
             ("setprompt", "Customize summarization style per podcast"),
             ("language", "Set language preference"),
-            ("reload", "Pull latest code and restart"),
         ]
     )
     logger.info("Bot initialized and ready.")
@@ -80,7 +78,6 @@ def main() -> None:
     app.add_handler(setprompt_conv)
     app.add_handler(language_handler)
     app.add_handler(language_callback_handler)
-    app.add_handler(CommandHandler("reload", cmd_reload))
     app.add_handler(orphaned_callback_handler)  # catch-all: dismiss stale inline keyboard callbacks
 
     logger.info("Starting bot polling...")

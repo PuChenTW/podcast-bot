@@ -32,7 +32,6 @@ def _fake_settings(monkeypatch):
         nemotron_model_dir=None,
         nemotron_language="auto",
         poll_interval_seconds=21600,
-        admin_user_id=123,
         groq_api_key=None,
         transcriber_backend="whisper",
         summarizer_model="google-gla:gemini-flash-lite-latest",

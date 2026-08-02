@@ -15,7 +15,6 @@ class Settings:
     nemotron_model_dir: str | None
     nemotron_language: str
     poll_interval_seconds: int
-    admin_user_id: int
     groq_api_key: str | None
     transcriber_backend: str
     summarizer_model: str
@@ -33,15 +32,12 @@ class Settings:
         missing = []
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         gemini_key = os.getenv("GEMINI_API_KEY")
-        admin_user_id = os.getenv("ADMIN_USER_ID")
         database_url = os.getenv("DATABASE_URL")
 
         if not token:
             missing.append("TELEGRAM_BOT_TOKEN")
         if not gemini_key:
             missing.append("GEMINI_API_KEY")
-        if not admin_user_id:
-            missing.append("ADMIN_USER_ID")
         if not database_url:
             missing.append("DATABASE_URL")
 
@@ -69,7 +65,6 @@ class Settings:
             nemotron_model_dir=nemotron_model_dir,
             nemotron_language=os.getenv("NEMOTRON_LANGUAGE", "auto"),
             poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "21600")),
-            admin_user_id=int(admin_user_id),
             groq_api_key=groq_api_key,
             transcriber_backend=transcriber_backend,
             summarizer_model=os.getenv("SUMMARIZER_MODEL", base),

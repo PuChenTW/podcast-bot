@@ -37,7 +37,7 @@ make download-nemotron       # fetch the Nemotron ASR model into models/ (needed
 
 `docker-compose.yml` mounts `.env` as a bind mount — secrets stay on host. Database is PostgreSQL (external); configure `DATABASE_URL` in `.env`.
 
-**Hot-reload (`/reload` command):** source is mounted from host (`.:/app`). Requires `openssh-client` in image + `~/.ssh:/root/.ssh:ro` volume for SSH remotes. Anonymous volume `/app/.venv` prevents the host mount from shadowing the in-image venv.
+**Deploys are image-baked, not hot-reloaded.** Source and dependencies are both copied into the image at build time — no bind mount, no `/reload` command. To ship a change: `git pull` on the host, then `docker compose up -d --build` to rebuild and recreate the containers.
 
 ## Architecture
 
@@ -83,7 +83,6 @@ RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() �
 | `NEMOTRON_LANGUAGE` | `auto` | Per-stream language hint: `en`/`zh`/`ja`/… or `auto` |
 | `DATABASE_URL` | required | asyncpg connection string (e.g. `postgresql://user:pass@localhost/dbname`) |
 | `POLL_INTERVAL_SECONDS` | `21600` | 6 hours |
-| `ADMIN_USER_ID` | required | Telegram user ID for `/reload` |
 | `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
 
 ### Nemotron ASR model

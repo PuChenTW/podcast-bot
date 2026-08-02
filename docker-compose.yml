@@ -22,10 +22,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/.venv
-      - ~/.ssh:/root/.ssh:ro
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://podcast:secret@db:5432/podcast_bot
@@ -39,9 +35,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/.venv
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://podcast:secret@db:5432/podcast_bot

@@ -48,7 +48,6 @@ make bot-run                # run the bot
 | `/setprompt` | Set a per-podcast summarization prompt: manual input, AI auto-generate, refine existing, or clear |
 | `/chat` | Pick a podcast → pick an episode → multi-turn AI conversation about the episode; `/end` to exit |
 | `/language` | Switch UI language (English / 繁體中文) |
-| `/reload` | Pull latest code and restart (admin only) |
 
 ## Configuration
 
@@ -71,7 +70,6 @@ All configuration is via `.env`:
 | `NEMOTRON_MODEL_DIR` | — | Required when `TRANSCRIBER=nemotron`; sherpa-onnx model dir (run `make download-nemotron`) |
 | `NEMOTRON_LANGUAGE` | `auto` | Per-stream language hint: `en`, `zh`, `ja`, … or `auto` |
 | `POLL_INTERVAL_SECONDS` | `21600` | How often to poll for new episodes (default: 6 hours) |
-| `ADMIN_USER_ID` | required | Your Telegram user ID — find via [@userinfobot](https://t.me/userinfobot) |
 | `WEB_USER_TELEGRAM_ID` | required (web) | Telegram user ID for web UI auth |
 
 ## Docker
@@ -84,7 +82,7 @@ make docker-logs            # tail logs
 make docker-down            # stop
 ```
 
-The source directory is bind-mounted into the container for `/reload`. The in-image `.venv` is protected via an anonymous volume so the host mount doesn't shadow it.
+Deploys are image-baked — source and dependencies are copied in at build time. To ship a code change: `git pull`, then `make docker-build && make docker-up` (or `docker compose up -d --build`) to rebuild and recreate the containers.
 
 ## Architecture
 

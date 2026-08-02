@@ -16,7 +16,6 @@ def _make_settings(token_path=None, folder_id=None):
         nemotron_model_dir=None,
         nemotron_language="auto",
         poll_interval_seconds=21600,
-        admin_user_id=1,
         groq_api_key=None,
         transcriber_backend="whisper",
         summarizer_model="m",

@@ -1,6 +1,5 @@
 """Bot command handlers — re-exported from focused submodules."""
 
-from bot.handlers.admin import cmd_reload
 from bot.handlers.chat import chat_conv
 from bot.handlers.digest import digest_conv
 from bot.handlers.fallback import orphaned_callback_handler
@@ -18,7 +17,6 @@ from bot.handlers.transcript import transcript_conv
 __all__ = [
     "cmd_start",
     "cmd_list",
-    "cmd_reload",
     "start_lang_handler",
     "subscribe_conv",
     "unsubscribe_conv",
