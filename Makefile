@@ -4,7 +4,7 @@ bot-run:
 	uv run python bot_main.py
 
 web-run:
-	uv run uvicorn web_main:app --reload --port 8000
+	uv run uvicorn web_main:app --reload --port 8888
 
 migrate-up:
 	uv run python -m migrate up

@@ -150,7 +150,7 @@ make sync                          # install dev dependencies
 make test                          # run tests (parallel via pytest-xdist)
 make lint                          # ruff linter
 make format                        # ruff formatter
-make web-run                       # run web UI on port 8000
+make web-run                       # run web UI on port 8888
 ```
 
 Tests use `pytest-mock-resources` for PostgreSQL. The fixture is `scope="session"` (one DB per xdist worker) to avoid concurrent `CREATE DATABASE` calls crashing the PMR container under `-n auto`. Each test truncates tables instead of cloning a new DB.

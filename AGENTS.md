@@ -18,7 +18,7 @@ cp .env.example .env         # first run: fill in required vars
 uv sync --all-extras         # install / sync dependencies
 uv sync --group dev --all-extras         # include pytest + pytest-asyncio
 uv run python bot_main.py    # run the bot (or: make bot-run)
-make web-run                 # run web UI (uvicorn, port 8000)
+make web-run                 # run web UI (uvicorn, port 8888)
 uv add <package>             # add a dependency
 make test                    # run pytest (or: uv run pytest tests/ -v)
 make lint                    # run ruff linter
