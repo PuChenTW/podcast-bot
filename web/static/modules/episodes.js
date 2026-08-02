@@ -193,6 +193,13 @@ export async function renderEpisodeDetail(el, episodeId) {
         regenBtn.className = 'regen-btn';
         regenBtn.addEventListener('click', () => startRegenerate(episodeId, summaryPanel, regenBtn));
 
+        const transcriptRegenBtn = document.createElement('button');
+        transcriptRegenBtn.textContent = '↺';
+        transcriptRegenBtn.title = '重新抓取逐字稿';
+        transcriptRegenBtn.className = 'regen-btn';
+        transcriptRegenBtn.hidden = true;
+        transcriptRegenBtn.addEventListener('click', () => startTranscriptRegenerate(episodeId, transcriptPanelRef, transcriptRegenBtn));
+
         let chatInitialized = false;
         tabNames.forEach((name, index) => {
             const button = document.createElement('button');
@@ -203,6 +210,8 @@ export async function renderEpisodeDetail(el, episodeId) {
                 tabPanels.forEach(item => item.classList.remove('active'));
                 button.classList.add('active');
                 tabPanels[index].classList.add('active');
+                regenBtn.hidden = index !== 0;
+                transcriptRegenBtn.hidden = index !== 2;
                 if (index === 3 && !chatInitialized) {
                     chatInitialized = true;
                     buildChatPanel(chatPanel, episodeId, detail);
@@ -211,6 +220,7 @@ export async function renderEpisodeDetail(el, episodeId) {
             tabBar.appendChild(button);
         });
         tabBar.appendChild(regenBtn);
+        tabBar.appendChild(transcriptRegenBtn);
         el.appendChild(tabBar);
 
         const wrapper = document.createElement('div');
@@ -222,11 +232,11 @@ export async function renderEpisodeDetail(el, episodeId) {
         descPanel.innerHTML = detail.description ? `<div class="description-content">${detail.description}</div>` : '<p class="empty-state">無說明。</p>';
         tabPanels.push(descPanel);
         wrapper.appendChild(descPanel);
-        const transcriptPanel = document.createElement('div');
-        transcriptPanel.className = 'tab-content';
-        transcriptPanel.innerHTML = transcript ? `<pre class="transcript-pre">${esc(transcript.content)}</pre>` : '<p class="empty-state">無逐字稿。</p>';
-        tabPanels.push(transcriptPanel);
-        wrapper.appendChild(transcriptPanel);
+        const transcriptPanelRef = document.createElement('div');
+        transcriptPanelRef.className = 'tab-content';
+        transcriptPanelRef.innerHTML = transcript ? `<pre class="transcript-pre">${esc(transcript.content)}</pre>` : '<p class="empty-state">無逐字稿。</p>';
+        tabPanels.push(transcriptPanelRef);
+        wrapper.appendChild(transcriptPanelRef);
         const chatPanel = document.createElement('div');
         chatPanel.className = 'tab-content';
         tabPanels.push(chatPanel);
@@ -258,6 +268,32 @@ async function startRegenerate(episodeId, summaryPanel, regenBtn) {
         );
     } catch (err) {
         summaryPanel.innerHTML = `<p class="error-msg">Error: ${esc(err.message)}</p>`;
+        regenBtn.disabled = false;
+        regenBtn.textContent = '↺';
+    }
+}
+
+async function startTranscriptRegenerate(episodeId, transcriptPanel, regenBtn) {
+    regenBtn.disabled = true;
+    regenBtn.textContent = '↻';
+    transcriptPanel.innerHTML = '<p class="empty-state">重新抓取中，請稍候…</p>';
+    try {
+        const job = await api('/episodes/' + episodeId + '/transcript-jobs', { method: 'POST' });
+        pollJob(job.id,
+            async () => {
+                const transcript = await api('/episodes/' + episodeId + '/transcript');
+                transcriptPanel.innerHTML = `<pre class="transcript-pre">${esc(transcript.content)}</pre>`;
+                regenBtn.disabled = false;
+                regenBtn.textContent = '↺';
+            },
+            error => {
+                transcriptPanel.innerHTML = `<p class="error-msg">Error: ${esc(error)}</p>`;
+                regenBtn.disabled = false;
+                regenBtn.textContent = '↺';
+            },
+        );
+    } catch (err) {
+        transcriptPanel.innerHTML = `<p class="error-msg">Error: ${esc(err.message)}</p>`;
         regenBtn.disabled = false;
         regenBtn.textContent = '↺';
     }
