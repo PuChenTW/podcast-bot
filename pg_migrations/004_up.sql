@@ -1,0 +1,1 @@
+ALTER TABLE subscriptions ADD COLUMN telegram_delivery BOOLEAN NOT NULL DEFAULT TRUE;

@@ -4,7 +4,7 @@
 
 | Module | Role |
 |--------|------|
-| `scheduler.py` | APScheduler job: polls all subscriptions every `POLL_INTERVAL_SECONDS`; marks episode seen even on failure (prevents retry loops) |
+| `scheduler.py` | APScheduler job: polls all subscriptions every `POLL_INTERVAL_SECONDS`; marks episode seen even on failure (prevents retry loops). `_process_episode` returns whether it sent, so the 1s rate-limit pause is skipped for muted subscriptions |
 | `handlers/` | One module per command/flow — see `bot/handlers/CLAUDE.md` |
 | `i18n.py` | `gettext(lang, key, **kwargs)`; unknown lang falls back to `zh-TW` |
 | `formatting.py` | Markdown → Telegram HTML conversion |
@@ -22,6 +22,7 @@
 | `transcript.py` | `/transcript` |
 | `setprompt.py` | `/setprompt` |
 | `chat.py` | `/chat` |
+| `notify.py` | `/notify` |
 | `language.py` | `/language` |
 | `episode_picker.py` | Shared paginated picker widget |
 

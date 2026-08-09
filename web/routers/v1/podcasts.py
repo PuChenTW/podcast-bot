@@ -5,7 +5,7 @@ from core import feed as rss
 from core.feed import parse_published
 from web.routers.v1.dependencies import CurrentUser, require_podcast, require_subscription
 from web.routers.v1.pagination import decode_cursor, encode_cursor
-from web.routers.v1.schemas import Podcast, PodcastList, SubscriptionCreate, SyncResult
+from web.routers.v1.schemas import DeliverySettings, Podcast, PodcastList, SubscriptionCreate, SyncResult
 
 router = APIRouter(tags=["podcasts"])
 
@@ -16,6 +16,7 @@ def _podcast(row: dict) -> Podcast:
         title=row.get("title") or row.get("podcast_title"),
         rss_url=row["rss_url"],
         subscription_id=row.get("subscription_id") or row["id"],
+        telegram_delivery=row["telegram_delivery"],
     )
 
 
@@ -92,7 +93,13 @@ async def create_subscription(body: SubscriptionCreate, user_id: CurrentUser):
             description=entry.get("summary") or entry.get("description") or None,
         )
         await db.ensure_user_episode(user_id, episode_id)
-    return Podcast(id=subscription.podcast_id, title=subscription.podcast_title, rss_url=subscription.rss_url, subscription_id=subscription.id)
+    return Podcast(
+        id=subscription.podcast_id,
+        title=subscription.podcast_title,
+        rss_url=subscription.rss_url,
+        subscription_id=subscription.id,
+        telegram_delivery=subscription.telegram_delivery,
+    )
 
 
 @router.delete(
@@ -108,6 +115,37 @@ async def delete_subscription(subscription=Depends(require_subscription)):
     """
     await db.remove_subscription_by_id(subscription.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/subscriptions/{subscription_id}/delivery",
+    response_model=DeliverySettings,
+    operation_id="get_subscription_delivery",
+    responses={403: {"description": "Forbidden"}, 404: {"description": "Subscription not found"}},
+)
+async def get_subscription_delivery(subscription=Depends(require_subscription)):
+    """Return whether new episodes are pushed to Telegram for this subscription.
+
+    Polling, transcription, and summarization run regardless of this setting —
+    it controls delivery only.
+    """
+    return DeliverySettings(telegram_delivery=subscription.telegram_delivery)
+
+
+@router.patch(
+    "/subscriptions/{subscription_id}/delivery",
+    response_model=DeliverySettings,
+    operation_id="update_subscription_delivery",
+    responses={403: {"description": "Forbidden"}, 404: {"description": "Subscription not found"}},
+)
+async def update_subscription_delivery(body: DeliverySettings, subscription=Depends(require_subscription)):
+    """Enable or disable Telegram delivery for this subscription.
+
+    Disabling keeps the scheduler downloading, transcribing, and summarizing new
+    episodes — they simply stop being pushed to Telegram and remain readable here.
+    """
+    await db.set_subscription_telegram_delivery(subscription.id, body.telegram_delivery)
+    return DeliverySettings(telegram_delivery=body.telegram_delivery)
 
 
 @router.post(

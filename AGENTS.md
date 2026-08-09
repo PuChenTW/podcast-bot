@@ -8,6 +8,7 @@ Telegram bot that monitors podcast RSS feeds and delivers AI-generated summaries
 - **On-demand digest:** `/digest` — pick podcast → pick episode → instant summary
 - **Custom prompts:** `/setprompt` — per-podcast summarization style (manual, AI-generated, or iterative refinement)
 - **Transcript download:** `/transcript` — outputs `.md` file; transcript cached in DB for instant repeat access
+- **Delivery toggle:** `/notify` — per-podcast switch for Telegram push. Muted subscriptions are still polled, transcribed and summarized; only the message is skipped. Also toggleable from the web UI.
 - **Language selection:** `/language` — switches UI between `en` / `zh-TW`
 - **Chat:** `/chat` — pick podcast/episode → multi-turn AI conversation about the episode
 
@@ -55,7 +56,7 @@ RSS feed → fetch_new_episodes() → get_transcript() → summarize_episode() �
 | `core/feed.py` | RSS parsing, transcript/audio fetching |
 | `core/ai/` | Gemini AI: summarizer, chat, transcript corrector, prompt engineer, condenser — see `core/AGENTS.md` |
 | `core/transcribers/` | Whisper + Groq backends, fallback pipeline — see `core/AGENTS.md` |
-| `bot/scheduler.py` | Polls subscriptions every `POLL_INTERVAL_SECONDS` |
+| `bot/scheduler.py` | Polls subscriptions every `POLL_INTERVAL_SECONDS`; sends to Telegram only when the subscription's `telegram_delivery` is on |
 | `bot/handlers/` | Telegram command handlers — see `bot/handlers/AGENTS.md` |
 | `bot/i18n.py` | `gettext(lang, key, **kwargs)`; unknown lang falls back to `zh-TW` |
 | `bot/formatting.py` | Markdown → Telegram HTML conversion |

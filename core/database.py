@@ -23,6 +23,7 @@ class Subscription(BaseModel):
     rss_url: str  # populated via JOIN to podcasts
     custom_prompt: str | None
     chat_prompt: str | None
+    telegram_delivery: bool
 
 
 class SubscriptionWithChat(Subscription):
@@ -153,7 +154,7 @@ async def add_subscription(user_id: str, podcast_title: str, rss_url: str) -> st
 async def get_subscriptions(user_id: str) -> list[Subscription]:
     async with _connect() as db:
         rows = await db.fetch(
-            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, s.chat_prompt "
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, s.chat_prompt, s.telegram_delivery "
             "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
             "WHERE s.user_id = $1 ORDER BY s.created_at",
             user_id,
@@ -164,7 +165,7 @@ async def get_subscriptions(user_id: str) -> list[Subscription]:
 async def get_all_subscriptions() -> list[SubscriptionWithChat]:
     async with _connect() as db:
         rows = await db.fetch(
-            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, s.chat_prompt, u.chat_id "
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, s.chat_prompt, s.telegram_delivery, u.chat_id "
             "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id JOIN users u ON s.user_id = u.id"
         )
     return [SubscriptionWithChat.model_validate(dict(r)) for r in rows]
@@ -191,7 +192,8 @@ async def remove_subscription_by_id(subscription_id: str) -> None:
 async def get_subscription_by_id(subscription_id: str) -> Subscription | None:
     async with _connect() as db:
         row = await db.fetchrow(
-            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, s.chat_prompt FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id WHERE s.id = $1",
+            "SELECT s.id, s.user_id, s.podcast_id, p.title AS podcast_title, p.rss_url, s.custom_prompt, s.chat_prompt, s.telegram_delivery "
+            "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id WHERE s.id = $1",
             subscription_id,
         )
         return Subscription.model_validate(dict(row)) if row else None
@@ -387,7 +389,8 @@ async def get_podcast_for_user(user_id: str, podcast_id: str) -> dict | None:
     """Return a podcast plus this user's subscription ID, if any."""
     async with _connect() as db:
         row = await db.fetchrow(
-            "SELECT p.id, p.rss_url, p.title, s.id AS subscription_id FROM podcasts p LEFT JOIN subscriptions s ON s.podcast_id = p.id AND s.user_id = $1 WHERE p.id = $2",
+            "SELECT p.id, p.rss_url, p.title, s.id AS subscription_id, COALESCE(s.telegram_delivery, TRUE) AS telegram_delivery "
+            "FROM podcasts p LEFT JOIN subscriptions s ON s.podcast_id = p.id AND s.user_id = $1 WHERE p.id = $2",
             user_id,
             podcast_id,
         )
@@ -419,7 +422,7 @@ async def list_podcasts_for_user(user_id: str, query: str, limit: int, after_id:
         cursor_sql = " AND s.id > $4"
     async with _connect() as db:
         rows = await db.fetch(
-            "SELECT p.id, p.rss_url, p.title, s.id AS subscription_id "
+            "SELECT p.id, p.rss_url, p.title, s.id AS subscription_id, s.telegram_delivery "
             "FROM subscriptions s JOIN podcasts p ON p.id = s.podcast_id "
             "WHERE s.user_id = $1 AND ($2 = '%%' OR p.title ILIKE $2)" + cursor_sql + " ORDER BY s.id LIMIT $3",
             *params,
@@ -512,6 +515,15 @@ async def set_subscription_chat_prompt(subscription_id: str, prompt: str | None)
         await db.execute(
             "UPDATE subscriptions SET chat_prompt = $1 WHERE id = $2",
             prompt,
+            subscription_id,
+        )
+
+
+async def set_subscription_telegram_delivery(subscription_id: str, enabled: bool) -> None:
+    async with _connect() as db:
+        await db.execute(
+            "UPDATE subscriptions SET telegram_delivery = $1 WHERE id = $2",
+            enabled,
             subscription_id,
         )
 

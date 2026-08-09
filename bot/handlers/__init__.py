@@ -4,6 +4,7 @@ from bot.handlers.chat import chat_conv
 from bot.handlers.digest import digest_conv
 from bot.handlers.fallback import orphaned_callback_handler
 from bot.handlers.language import language_callback_handler, language_handler
+from bot.handlers.notify import notify_conv
 from bot.handlers.setprompt import setprompt_conv
 from bot.handlers.subscribe import (
     cmd_list,
@@ -24,6 +25,7 @@ __all__ = [
     "transcript_conv",
     "setprompt_conv",
     "chat_conv",
+    "notify_conv",
     "language_handler",
     "language_callback_handler",
     "orphaned_callback_handler",

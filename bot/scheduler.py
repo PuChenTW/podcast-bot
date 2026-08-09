@@ -18,15 +18,24 @@ logger = logging.getLogger(__name__)
 _scheduler: AsyncScheduler | None = None
 
 
-async def _process_episode(bot, sub, episode, chat_id: int) -> None:
+async def _process_episode(bot, sub, episode, chat_id: int) -> bool:
+    """Transcribe-and-summarize an episode, delivering it to Telegram only when enabled.
+
+    Returns whether a Telegram message was actually sent, so the caller can skip
+    the rate-limit pause for muted subscriptions.
+    """
+    sent = False
     try:
         summary = await summarize_episode(
             episode.title,
             episode.content,
             custom_prompt=sub.custom_prompt,
         )
-        text = format_summary(sub.podcast_title, episode.title, summary)
-        await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        # chat_id 0 is the sentinel for web-created users, who have no Telegram chat.
+        if sub.telegram_delivery and chat_id:
+            text = format_summary(sub.podcast_title, episode.title, summary)
+            await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+            sent = True
         await db.mark_episode_seen(
             sub.user_id,
             sub.podcast_id,
@@ -50,6 +59,7 @@ async def _process_episode(bot, sub, episode, chat_id: int) -> None:
         logger.error("Error processing episode %s: %s", episode.title, exc)
         # Still mark as seen to avoid retrying broken episodes indefinitely
         await db.mark_episode_seen(sub.user_id, sub.podcast_id, episode.guid, title=episode.title)
+    return sent
 
 
 async def poll_all_feeds(app: Application) -> None:
@@ -75,8 +85,8 @@ async def poll_all_feeds(app: Application) -> None:
 
         chat_id = sub.chat_id  # capture before loop to avoid closure bug
         for episode in new_episodes:
-            await _process_episode(bot, sub, episode, chat_id)
-            await asyncio.sleep(1)  # Telegram rate limit
+            if await _process_episode(bot, sub, episode, chat_id):
+                await asyncio.sleep(1)  # Telegram rate limit
 
 
 async def start_scheduler(app: Application) -> None:

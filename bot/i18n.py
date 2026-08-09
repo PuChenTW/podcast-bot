@@ -9,6 +9,7 @@ TRANSLATIONS = {
             "/transcript — download raw episode transcript\n"
             "/chat — discuss an episode with AI\n"
             "/setprompt — customize summarization style per podcast\n"
+            "/notify — turn Telegram delivery on/off per podcast\n"
             "/language — set language"
         ),
         # Subscribe / Unsubscribe / List
@@ -85,6 +86,15 @@ TRANSLATIONS = {
         "chat_error": "Error generating response. You can keep chatting.",
         "chat_session_expired": "Session expired. Run /chat to start a new conversation.",
         "chat_ep_data_expired": "Episode data expired. Run /chat again.",
+        # Notify
+        "notify_choose": (
+            "Tap a podcast to turn Telegram delivery on or off.\n\nMuted podcasts are still downloaded, transcribed and summarized — you just won't get a message. Read them any time in the web UI."
+        ),
+        "notify_on_label": "🔔 {title}",
+        "notify_off_label": "🔕 {title}",
+        "notify_enabled": 'Telegram delivery ON for "{title}".',
+        "notify_disabled": 'Telegram delivery OFF for "{title}". New episodes are still summarized.',
+        "notify_done": "Done.",
         # Language
         "language_prompt": "Please select your language:",
         "language_set": "Language set to English.",
@@ -109,6 +119,7 @@ TRANSLATIONS = {
             "/transcript — 下載單集逐字稿\n"
             "/chat — 與 AI 討論單集內容\n"
             "/setprompt — 自訂不同 podcast 的摘要風格\n"
+            "/notify — 切換各 podcast 是否推播到 Telegram\n"
             "/language — 設定語言"
         ),
         # Subscribe / Unsubscribe / List
@@ -185,6 +196,13 @@ TRANSLATIONS = {
         "chat_error": "生成回應時發生錯誤，你可以繼續提問。",
         "chat_session_expired": "對話已過期，請執行 /chat 開始新的對話。",
         "chat_ep_data_expired": "單集資料已過期，請重新執行 /chat。",
+        # Notify
+        "notify_choose": ("點選 Podcast 可切換是否推播到 Telegram。\n\n靜音的 Podcast 仍會照常下載、轉錄並產生摘要，只是不會傳訊息給你，隨時可以到網頁介面閱讀。"),
+        "notify_on_label": "🔔 {title}",
+        "notify_off_label": "🔕 {title}",
+        "notify_enabled": "已開啟「{title}」的 Telegram 推播。",
+        "notify_disabled": "已關閉「{title}」的 Telegram 推播，新集數仍會產生摘要。",
+        "notify_done": "完成。",
         # Language
         "language_prompt": "請選擇你的語言設定：",
         "language_set": "已將語言設定為繁體中文。",

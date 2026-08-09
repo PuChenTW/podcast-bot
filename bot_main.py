@@ -13,6 +13,7 @@ from bot.handlers import (
     digest_conv,
     language_callback_handler,
     language_handler,
+    notify_conv,
     orphaned_callback_handler,
     setprompt_conv,
     start_lang_handler,
@@ -50,6 +51,7 @@ async def post_init(app: Application) -> None:
             ("transcript", "Download raw transcript of an episode"),
             ("chat", "Discuss an episode with AI"),
             ("setprompt", "Customize summarization style per podcast"),
+            ("notify", "Toggle Telegram delivery per podcast"),
             ("language", "Set language preference"),
         ]
     )
@@ -76,6 +78,7 @@ def main() -> None:
     app.add_handler(transcript_conv)
     app.add_handler(chat_conv)
     app.add_handler(setprompt_conv)
+    app.add_handler(notify_conv)
     app.add_handler(language_handler)
     app.add_handler(language_callback_handler)
     app.add_handler(orphaned_callback_handler)  # catch-all: dismiss stale inline keyboard callbacks

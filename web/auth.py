@@ -11,7 +11,7 @@ async def get_current_user(request: Request) -> str:
     Signature (Request → str user_id ULID) must not change.
 
     chat_id=0 is a sentinel for web-originated users with no Telegram chat context.
-    The bot scheduler skips delivery for rows where chat_id=0.
+    bot/scheduler.py checks it before sending, so those rows are never pushed to.
     """
     telegram_id = int(os.environ["WEB_USER_TELEGRAM_ID"])
     return await db.get_or_create_user(telegram_id, chat_id=0)

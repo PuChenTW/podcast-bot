@@ -21,3 +21,24 @@ def test_refine_enter_format():
     assert "test prompt" in result
     result_tw = gettext("zh-tw", "refine_enter", prompt="測試 prompt")
     assert "測試 prompt" in result_tw
+
+
+def test_notify_keys_present():
+    # Direct dict check bypasses gettext's zh-tw fallback, which would mask missing "en" keys
+    notify_keys = (
+        "notify_choose",
+        "notify_on_label",
+        "notify_off_label",
+        "notify_enabled",
+        "notify_disabled",
+        "notify_done",
+    )
+    for lang in ("en", "zh-tw"):
+        for key in notify_keys:
+            assert key in TRANSLATIONS[lang], f"Missing key '{key}' for lang '{lang}'"
+
+
+def test_notify_labels_format_title():
+    assert "My Show" in gettext("en", "notify_on_label", title="My Show")
+    assert "My Show" in gettext("zh-tw", "notify_off_label", title="My Show")
+    assert "My Show" in gettext("en", "notify_disabled", title="My Show")

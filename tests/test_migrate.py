@@ -302,3 +302,42 @@ async def test_v3_migration_merges_duplicate_subscriptions(db_url):
             await db.execute("INSERT INTO subscriptions (id, user_id, podcast_id) VALUES ('duplicate', 'user', 'podcast')")
     finally:
         await db.close()
+
+
+async def _telegram_delivery_default(db_url: str) -> str | None:
+    db = await asyncpg.connect(db_url)
+    try:
+        return await db.fetchval("SELECT column_default FROM information_schema.columns WHERE table_name = 'subscriptions' AND column_name = 'telegram_delivery'")
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_v4_migration_round_trip_on_real_migrations(db_url):
+    """The real 004 pair must apply, roll back to 003, and re-apply cleanly."""
+    await migrate_up(db_url, DEFAULT_MIGRATIONS_DIR)
+    assert await _telegram_delivery_default(db_url) == "true"
+
+    await migrate_down(db_url, DEFAULT_MIGRATIONS_DIR, 3)
+    assert await _telegram_delivery_default(db_url) is None
+
+    await migrate_up(db_url, DEFAULT_MIGRATIONS_DIR)
+    assert await _telegram_delivery_default(db_url) == "true"
+
+
+@pytest.mark.asyncio
+async def test_v4_backfills_existing_rows_as_enabled(db_url):
+    """Existing subscriptions keep their current behaviour: delivery stays on."""
+    db = await asyncpg.connect(db_url)
+    try:
+        for version in ("001", "002", "003"):
+            await _exec_sql_file(db, (DEFAULT_MIGRATIONS_DIR / f"{version}_up.sql").read_text())
+        await db.execute("INSERT INTO users (id, telegram_user_id, chat_id) VALUES ('user', 1, 0)")
+        await db.execute("INSERT INTO podcasts (id, rss_url, title) VALUES ('podcast', 'https://example.com/feed', 'Example')")
+        await db.execute("INSERT INTO subscriptions (id, user_id, podcast_id) VALUES ('existing', 'user', 'podcast')")
+
+        await _exec_sql_file(db, (DEFAULT_MIGRATIONS_DIR / "004_up.sql").read_text())
+
+        assert await db.fetchval("SELECT telegram_delivery FROM subscriptions WHERE id = 'existing'") is True
+    finally:
+        await db.close()

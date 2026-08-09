@@ -17,6 +17,18 @@ class UnsubCallback(BaseModel):
         return cls(subscription_id=None if rest == "cancel" else rest)
 
 
+class NotifyCallback(BaseModel):
+    subscription_id: Optional[str]
+
+    def serialize(self) -> str:
+        return f"notify:{self.subscription_id or 'cancel'}"
+
+    @classmethod
+    def parse(cls, data: str) -> "NotifyCallback":
+        _, rest = data.split(":", 1)
+        return cls(subscription_id=None if rest == "cancel" else rest)
+
+
 class LangCallback(BaseModel):
     lang: str
 

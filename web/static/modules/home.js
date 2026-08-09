@@ -10,6 +10,33 @@ function buildCard(podcast, grid, el) {
     card.innerHTML = `<h3>${esc(podcast.title)}</h3><p class="subtitle">${esc(podcast.rss_url)}</p>`;
     card.addEventListener('click', () => { location.hash = '#/podcast/' + podcast.id; });
 
+    // Delivery toggle: muting stops Telegram pushes only — episodes keep being
+    // transcribed and summarized, and stay readable here.
+    const bellBtn = document.createElement('button');
+    let delivery = podcast.telegram_delivery;
+    const paintBell = () => {
+        bellBtn.textContent = delivery ? '🔔 推播中' : '🔕 已靜音';
+        bellBtn.title = delivery ? '點擊停止推播到 Telegram（仍會下載與摘要）' : '點擊恢復推播到 Telegram';
+    };
+    paintBell();
+    bellBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        bellBtn.disabled = true;
+        try {
+            const updated = await api('/subscriptions/' + podcast.subscription_id + '/delivery', {
+                method: 'PATCH',
+                body: JSON.stringify({ telegram_delivery: !delivery }),
+            });
+            delivery = updated.telegram_delivery;
+            paintBell();
+        } catch (err) {
+            alert('切換推播失敗：' + err.message);
+        } finally {
+            bellBtn.disabled = false;
+        }
+    });
+    card.appendChild(bellBtn);
+
     const delBtn = document.createElement('button');
     delBtn.className = 'danger';
     delBtn.textContent = '退訂';

@@ -20,8 +20,8 @@
 ```
 users(id ULID, telegram_user_id, chat_id, language, created_at)
 podcasts(id ULID, rss_url UNIQUE, title, created_at)
-subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, chat_prompt, created_at)
-  UNIQUE(user_id, podcast_id)
+subscriptions(id ULID, user_id→users, podcast_id→podcasts, custom_prompt, chat_prompt, telegram_delivery, created_at)
+  UNIQUE(user_id, podcast_id)  -- telegram_delivery defaults TRUE; gates Telegram push only
 episodes(id ULID, podcast_id→podcasts, episode_guid, title, published_at, transcript, transcript_source, transcript_updated_at, condensed_transcript, description)
   UNIQUE(podcast_id, episode_guid)  -- shared across users
 user_episodes(id ULID, user_id→users, episode_id→episodes, summary, notified_at)
@@ -69,6 +69,10 @@ Tests must patch `_get_pool` in `core.database` or set `DATABASE_URL` to a real 
 ## Error recovery
 
 The scheduler marks an episode as seen even when processing fails. This is intentional — prevents infinite retry loops on bad episodes.
+
+## Delivery vs. processing
+
+`subscriptions.telegram_delivery` gates **only** `bot.send_message`. Fetching, transcription, summarization and persistence run regardless, so a muted podcast still accumulates readable summaries in the web UI. Any new subscription query must include the column — `Subscription` requires it, and four SELECTs plus `get_podcast_for_user` (which `COALESCE`s it for the unsubscribed LEFT JOIN case) already do.
 
 ## Settings in tests
 

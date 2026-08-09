@@ -15,6 +15,7 @@ from core.database import (
     remove_subscription,
     remove_subscription_by_id,
     set_subscription_prompt,
+    set_subscription_telegram_delivery,
 )
 
 
@@ -236,6 +237,34 @@ class TestSetSubscriptionPrompt:
         await set_subscription_prompt(sub_id, None)
         sub = await get_subscription_by_id(sub_id)
         assert sub.custom_prompt is None
+
+
+class TestSetSubscriptionTelegramDelivery:
+    async def test_defaults_to_enabled(self, tmp_db):
+        uid = await _make_user()
+        sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
+        sub = await get_subscription_by_id(sub_id)
+        assert sub.telegram_delivery is True
+
+    async def test_disable_then_enable(self, tmp_db):
+        uid = await _make_user()
+        sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
+
+        await set_subscription_telegram_delivery(sub_id, False)
+        sub = await get_subscription_by_id(sub_id)
+        assert sub.telegram_delivery is False
+
+        await set_subscription_telegram_delivery(sub_id, True)
+        sub = await get_subscription_by_id(sub_id)
+        assert sub.telegram_delivery is True
+
+    async def test_reflected_in_list_queries(self, tmp_db):
+        uid = await _make_user()
+        sub_id = await add_subscription(uid, "Show", "http://example.com/feed.rss")
+        await set_subscription_telegram_delivery(sub_id, False)
+
+        assert (await get_subscriptions(uid))[0].telegram_delivery is False
+        assert [s for s in await get_all_subscriptions() if s.id == sub_id][0].telegram_delivery is False
 
 
 class TestCloseDb:

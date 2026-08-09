@@ -40,6 +40,7 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | GET | `/api/v1/episodes/{id}/transcript/download` | Download transcript Markdown |
 | POST | `/api/v1/episodes/{id}/{summary\|transcript}-jobs` | Queue resource regeneration |
 | GET | `/api/v1/jobs/{id}` | Poll durable job state |
+| GET/PATCH | `/api/v1/subscriptions/{id}/delivery` | Read/toggle Telegram push for a subscription |
 | GET/PATCH | `/api/v1/subscriptions/{id}/prompts` | Read/update summary and chat prompts |
 | POST | `/api/v1/subscriptions/{id}/prompt-drafts` | Generate but do not save a prompt |
 | POST | `/api/v1/episodes/{id}/chat` | Existing SSE chat protocol |
@@ -71,7 +72,7 @@ A prefix-*preserving* proxy (e.g. nginx `location /podcast-bot/`) would need `pr
 
 `get_current_user(request) → user_id (ULID)` is an injectable FastAPI dependency. Phase 1 always resolves to `WEB_USER_TELEGRAM_ID`. Signature must stay `Request → str` for the planned Phase 2 Telegram Login Widget upgrade.
 
-Web-originated users are created with `chat_id=0` — a sentinel that causes the bot scheduler to skip Telegram delivery for those rows.
+Web-originated users are created with `chat_id=0` — a sentinel for "no Telegram chat". `bot/scheduler.py` checks it before sending, alongside the per-subscription `telegram_delivery` flag, so these rows are never pushed to.
 
 ## New Endpoint Pattern
 

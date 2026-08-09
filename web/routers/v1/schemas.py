@@ -16,6 +16,7 @@ class Podcast(BaseModel):
     title: str | None
     rss_url: str
     subscription_id: str
+    telegram_delivery: bool
 
 
 class PodcastList(BaseModel):
@@ -64,6 +65,10 @@ class Transcript(BaseModel):
     content: str
     source: Literal["feed", "asr"] | None
     updated_at: datetime | None
+
+
+class DeliverySettings(BaseModel):
+    telegram_delivery: bool
 
 
 class PromptSettings(BaseModel):
