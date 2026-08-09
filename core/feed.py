@@ -263,7 +263,8 @@ async def fetch_feed_episodes(
 ) -> list[Episode]:
     """Return up to `limit` most-recent episodes from the feed."""
     feed = await asyncio.to_thread(feedparser.parse, rss_url)
-    return [await _build_episode(e, transcriber, corrector=corrector) for e in feed.entries[:limit]]
+    podcast_title = parse_podcast_title(feed)
+    return [await _build_episode(e, transcriber, podcast_title, corrector) for e in feed.entries[:limit]]
 
 
 async def fetch_new_episodes(
