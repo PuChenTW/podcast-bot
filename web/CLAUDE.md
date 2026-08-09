@@ -6,7 +6,7 @@ FastAPI web UI for managing podcast subscriptions and browsing episode summaries
 
 ```
 web/
-  app.py          # FastAPI app factory; mounts routers + static dir; serves index.html via a route (not StaticFiles) to inject WEB_BASE_PATH into <base href>
+  app.py          # FastAPI app factory; routes + static mounted at root only — sub-path deployment is handled entirely by index.html's relative <base href="./">, not by config
   auth.py         # get_current_user() dependency — Phase 1: env var; Phase 2: Telegram Login Widget
   jobs.py         # PostgreSQL-backed worker for summary/transcript jobs
   routers/
@@ -55,7 +55,17 @@ Required env vars (in addition to `GEMINI_API_KEY`):
 | Variable | Notes |
 |----------|-------|
 | `WEB_USER_TELEGRAM_ID` | Telegram user ID; web UI auth resolves this to a DB user |
-| `WEB_BASE_PATH` | Optional. Set when reverse-proxied under a sub-path (e.g. `tailscale serve --set-path=/podcast-bot 8888` needs `WEB_BASE_PATH=/podcast-bot`). Empty by default. |
+
+## Sub-path Deployment
+
+The app is served at root only and has **no base-path setting** — deliberately. `index.html` carries a relative `<base href="./">`, which the browser resolves against the page's own URL, so the same response works everywhere:
+
+- `http://localhost:8888/` → assets resolve to `/app.js`.
+- `tailscale serve --set-path=/podcast-bot 8888` → the page URL is `…/podcast-bot/`, so the browser requests `/podcast-bot/app.js`; Tailscale strips the prefix back to `/app.js` before it reaches the app.
+
+Tailscale Serve strips the `--set-path` prefix and sends **no** `X-Forwarded-Prefix` (verified: only `X-Forwarded-For/Host/Proto` and `Tailscale-User-*`). Proxied and direct requests are therefore indistinguishable server-side — which is exactly why the `<base href>` must stay relative and must not be rewritten per-deployment. Any server-side prefix config would hardcode one deployment and break the other; a previous `WEB_BASE_PATH` + strip-prefix-middleware attempt failed for this reason.
+
+A prefix-*preserving* proxy (e.g. nginx `location /podcast-bot/`) would need `proxy_pass` with a trailing slash to strip the prefix, matching Tailscale's behavior.
 
 ## Auth
 
@@ -77,7 +87,7 @@ Feed synchronization calls `upsert_episode` for shared metadata and `ensure_user
 
 Frontend uses ES modules (`<script type="module">`). FastAPI's StaticFiles serves correct MIME types — no bundler needed. `marked` is loaded from CDN as a global and accessed directly (not imported).
 
-All API calls and asset references resolve against `document.baseURI` (or plain relative paths), never a hardcoded `/api/v1` or `/`, so the frontend keeps working when reverse-proxied under `WEB_BASE_PATH`.
+All API calls and asset references resolve against `document.baseURI` (or plain relative paths), never a hardcoded `/api/v1` or `/`. Combined with the relative `<base href="./">`, this is what makes sub-path proxying work with no server-side configuration — see "Sub-path Deployment" above.
 
 `home.js` does in-place DOM mutations for subscribe/unsubscribe — no `location.hash` reload. Subscribe success appends a new card directly to the grid (or creates the grid if first subscription); unsubscribe removes the card and shows empty-state if the grid is now empty. This avoids the hashchange no-op when already on `#/`.
 

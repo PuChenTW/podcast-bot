@@ -95,16 +95,20 @@ def create_app() -> FastAPI:
     )
     app.include_router(api_v1_router)
 
-    # Base path this app is reverse-proxied under (e.g. "/podcast-bot" via `tailscale serve
-    # --set-path`). Empty by default for local/root-mounted deployment. Injected into <base
-    # href> so relative asset and API requests resolve under the proxy prefix instead of root.
-    base_path = os.environ.get("WEB_BASE_PATH", "").rstrip("/")
+    # index.html ships a literal <base href="./">, which the browser resolves against the page's
+    # own URL -- so the app needs no notion of the path it is served under. Direct access at
+    # localhost:8888/ resolves assets to /app.js; behind `tailscale serve --set-path=/podcast-bot`
+    # the page URL is .../podcast-bot/, so the browser requests /podcast-bot/app.js and Tailscale
+    # strips the prefix back to /app.js before it reaches us. Both work, unconfigured. Serving a
+    # server-rewritten <base href> instead would hardcode one deployment and break the other,
+    # because the stripped path carries no trace of the public prefix (Tailscale sends no
+    # X-Forwarded-Prefix either), leaving proxied and direct requests indistinguishable here.
     index_html = (Path("web/static") / "index.html").read_text()
-    index_html = index_html.replace('<base href="./">', f'<base href="{base_path}/">')
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def index():
         return index_html
 
     app.mount("/", StaticFiles(directory="web/static"))
+
     return app
