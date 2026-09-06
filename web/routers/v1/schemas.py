@@ -103,6 +103,20 @@ class Job(BaseModel):
     finished_at: datetime | None
 
 
+class TranscriptStatus(BaseModel):
+    """Transcript text when cached, otherwise the state of the job producing it."""
+
+    episode_id: str
+    status: Literal["ready", "generating", "failed"]
+    content: str | None = None
+    chars: int | None = None
+    source: str | None = None
+    updated_at: datetime | None = None
+    job_id: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+
 class ChatRequest(BaseModel):
     message: str = Field(max_length=4000)
     history: str = Field(max_length=200_000)

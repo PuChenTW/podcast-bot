@@ -14,11 +14,14 @@ router = APIRouter(prefix="/podcast-catalog", tags=["podcast-catalog"])
     responses={503: {"description": "Apple catalog unavailable"}},
 )
 async def search_podcast_catalog(user_id: CurrentUser, q: str = Query(min_length=1)):
-    """Search Apple Podcasts by show title, author, or topic.
+    """Search all of Apple Podcasts for shows the user does not subscribe to yet.
 
-    Returns up to 10 matching podcasts with the RSS feed URL required to create
-    a subscription. Results are fetched live and are not limited to the user's
-    existing subscriptions.
+    Use this only to discover new shows. Results are live from Apple and have no
+    episodes or transcripts stored here: reaching a transcript from one of these
+    means subscribing first and then running a transcription that takes minutes.
+    To find something in the user's existing library, use `list_podcasts` instead.
+
+    Returns up to 10 matches with the RSS feed URL needed to create a subscription.
     """
     del user_id
     try:

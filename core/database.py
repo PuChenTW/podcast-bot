@@ -571,6 +571,18 @@ async def create_api_job(user_id: str, episode_id: str, kind: str, result_url: s
     return dict(row)
 
 
+async def get_latest_api_job(user_id: str, episode_id: str, kind: str) -> dict | None:
+    """Most recent job for a resource, whatever its status — including terminal ones."""
+    async with _connect() as db:
+        row = await db.fetchrow(
+            "SELECT * FROM api_jobs WHERE user_id = $1 AND episode_id = $2 AND kind = $3 ORDER BY created_at DESC LIMIT 1",
+            user_id,
+            episode_id,
+            kind,
+        )
+    return dict(row) if row else None
+
+
 async def get_api_job_for_user(user_id: str, job_id: str) -> dict | None:
     async with _connect() as db:
         row = await db.fetchrow(

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from core import database as db
 from core.audio_workspace import cleanup_stale_audio_workspaces
 from web import jobs
+from web.mcp import mount_mcp
 from web.routers.v1 import router as api_v1_router
 
 API_DESCRIPTION = """
@@ -94,6 +95,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(api_v1_router)
+
+    # Must precede the StaticFiles mount at "/", which would otherwise swallow /mcp.
+    mount_mcp(app)
 
     # index.html ships a literal <base href="./">, which the browser resolves against the page's
     # own URL -- so the app needs no notion of the path it is served under. Direct access at

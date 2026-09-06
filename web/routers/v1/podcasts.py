@@ -27,7 +27,11 @@ async def list_podcasts(
     cursor: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
 ):
-    """List the current user's podcast subscriptions.
+    """Search the podcasts the user already subscribes to.
+
+    Prefer this over `search_podcast_catalog` when looking for something to read:
+    these podcasts already have episodes stored here and often cached transcripts,
+    so it is the fast path to content and needs no new subscription.
 
     Optionally filters subscriptions by `q`. Results use opaque cursor
     pagination; pass `next_cursor` as `cursor` to retrieve the next page.

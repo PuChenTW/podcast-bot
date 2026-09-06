@@ -6,6 +6,7 @@ FastAPI web UI for managing podcast subscriptions and browsing episode summaries
 
 ```
 web/
+  mcp.py          # MCP server: tool allow-list + /mcp mount
   app.py          # FastAPI app factory; routes + static mounted at root only — sub-path deployment is handled entirely by index.html's relative <base href="./">, not by config
   auth.py         # get_current_user() dependency — Phase 1: env var; Phase 2: Telegram Login Widget
   jobs.py         # PostgreSQL-backed worker for summary/transcript jobs
@@ -37,6 +38,7 @@ web_main.py       # ASGI entry point: `from web.app import create_app`
 | GET | `/api/v1/episodes/{id}` | Lightweight episode metadata |
 | GET | `/api/v1/episodes/{id}/summary` | User-specific summary |
 | GET | `/api/v1/episodes/{id}/transcript` | Shared transcript and provenance |
+| GET | `/api/v1/episodes/{id}/transcript-text` | Transcript, auto-queueing generation when absent (agent-facing) |
 | GET | `/api/v1/episodes/{id}/transcript/download` | Download transcript Markdown |
 | POST | `/api/v1/episodes/{id}/{summary\|transcript}-jobs` | Queue resource regeneration |
 | GET | `/api/v1/jobs/{id}` | Poll durable job state |
@@ -95,3 +97,72 @@ All API calls and asset references resolve against `document.baseURI` (or plain 
 ## RSS Description
 
 `entry.get("summary")` is feedparser's field for RSS `<description>` content. It often contains HTML markup — render with `innerHTML`, not `textContent`/escaped.
+
+## MCP
+
+`web/mcp.py` mounts an MCP server at `/mcp` (streamable HTTP) inside the same
+FastAPI app, so agents and the web UI share one process, one port, and one set
+of ownership checks. `fastapi-mcp` derives tools from each route's
+`operation_id` and calls them over ASGI — no HTTP hop, and `get_current_user`
+applies unchanged.
+
+Order matters in `create_app()`: `mount_mcp(app)` must run **before** the
+`StaticFiles` mount at `/`, which would otherwise swallow `/mcp`.
+
+### Tool surface
+
+The allow-list in `MCP_TOOLS` is narrower than the REST API on purpose. The
+agent's workflow is: find a podcast → get the transcript → analyze the text
+itself. Tools outside that are excluded so they cannot be misused and do not
+crowd the agent's tool list:
+
+| Excluded | Why |
+|----------|-----|
+| `delete_subscription` | Destructive, no upside for analysis |
+| `get/update_subscription_delivery`, `get/update_subscription_prompts`, `create_subscription_prompt_draft` | Configure the bot and web UI, not analysis |
+| `download_episode_transcript` | `Content-Disposition` is meaningless over MCP; without it, a lossier `get_episode_transcript` (drops `source`/`updated_at`) whose name would lure agents away from the better tool |
+| `chat_with_episode` | Runs a second LLM and needs an opaque pydantic-ai history round-trip; the MCP client is already an LLM holding the transcript |
+
+**Do not re-add these thinking they were an oversight.**
+
+### Two searches, deliberately distinguished
+
+`list_podcasts` (existing subscriptions, transcripts often cached) and
+`search_podcast_catalog` (all of Apple, requires subscribing + a multi-minute
+transcription) are not peers. Their docstrings say so explicitly, because tool
+descriptions are all many clients show the model — without that, an agent
+reaches for "search" and subscribes the user to a show just to read one episode.
+
+### Async transcript contract
+
+`fetch_episode_transcript` (`GET /episodes/{id}/transcript-text`) returns
+`status="ready"` with full text when cached, otherwise queues transcription and
+returns `generating` immediately. Blocking instead would exceed MCP client
+timeouts on a Whisper run and fail the call even though the job succeeds.
+`create_api_job` dedupes on `(user_id, episode_id, kind)` for in-flight jobs, so
+repeated polls do not pile up work; a prior **failed** job is reported as
+`failed` before queueing a retry, so an untranscribable episode never looks
+perpetually "generating".
+
+This lives in a REST endpoint rather than a custom MCP tool because
+`fastapi-mcp` 0.4.0 has no public API for custom tools — `setup_server()` builds
+the list from the OpenAPI schema and hardcodes dispatch to `_execute_api_tool`.
+A real endpoint is testable with the existing `ASGITransport` fixtures.
+
+`GET /episodes/{id}/transcript` keeps its `404` and never auto-queues: the
+frontend drives its own regenerate button off that status, and auto-queueing
+would start Whisper runs whenever someone opens an episode page.
+
+### fastapi-mcp quirk
+
+`FastApiMCP` passes `description` into `Server(name, version)`, landing it in
+the protocol's **version** field and leaving `instructions` — what clients feed
+the model — empty. `mount_mcp` sets `server.version` and `server.instructions`
+after construction to correct this. Re-check on upgrade.
+
+### Auth
+
+`/mcp` inherits `get_current_user`, which resolves `WEB_USER_TELEGRAM_ID` and
+ignores the request — **every MCP caller acts as that user**, exactly as with
+the REST API. Tailscale is the perimeter. Do a real auth phase before exposing
+this via `tailscale funnel` or any public route.
